@@ -14,14 +14,34 @@ class Metrics:
     """Record top1, top5, loss metrics, track best so far"""
 
     def __init__(self, title:str, epochs: int, logger_freq:int=10) -> None:
+        self.logger_freq = logger_freq
+        self.title, self.epochs = title, epochs
+
         self.top1 = utils.AverageMeter()
         self.top5 = utils.AverageMeter()
         self.loss = utils.AverageMeter()
+
+        self.reset()
+
+    def reset(self, epochs:Optional[int]=None)->None:
         self.best_top1, self.best_epoch = 0.0, 0
-        self.logger_freq = logger_freq
-        self.title = title
-        self.epoch, self.epochs = 0, epochs
-        self.step, self.global_step = 0, 0
+        self.epoch = 0
+        self.global_step = 0
+        if epochs is not None:
+            self.epochs = epochs
+
+        self._reset_epoch()
+
+    def _reset_epoch(self)->None:
+        self.top1.reset()
+        self.top5.reset()
+        self.loss.reset()
+        self.step = 0
+
+    def pre_run(self)->None:
+        self.reset()
+    def post_run(self)->None:
+        pass
 
     def pre_step(self, x: Tensor, y: Tensor):
         pass
@@ -64,9 +84,10 @@ class Metrics:
             logger = get_logger()
             logger.info(f"[{self.title}] "
                         f"Final best top1={self.best_top1}, "
-                        f"epoch{self.best_epoch}")
+                        f"epoch={self.best_epoch}")
 
     def pre_epoch(self, lr:Optional[float]=None)->None:
+        self._reset_epoch()
         if lr is not None:
             logger, writer = get_logger(), get_tb_writer()
             if self.logger_freq > 0:
@@ -75,7 +96,6 @@ class Metrics:
 
     def post_epoch(self):
         self.epoch += 1
-        self.step = 0
 
         if self.best_top1 < self.top1.avg:
             self.best_epoch = self.epoch

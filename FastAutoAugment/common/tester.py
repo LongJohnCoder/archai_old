@@ -27,7 +27,6 @@ class Tester(EnforceOverrides):
 
     def test(self, test_dl: DataLoader)->None:
         # recreate metrics for this run
-        self._metrics = self._create_metrics(epochs=1)
         steps = len(test_dl)
         self.pre_test(test_dl, steps, self._metrics)
         self.model.eval()
@@ -48,9 +47,11 @@ class Tester(EnforceOverrides):
         return self._metrics
 
     def pre_test(self, test_dl:DataLoader, epoch_steps:int, metrics:Metrics)->None:
+        metrics.pre_run()
         metrics.pre_epoch()
     def post_test(self, test_dl:DataLoader, epoch_steps:int, metrics:Metrics)->None:
         metrics.post_epoch()
+        metrics.post_run()
     def pre_step(self, x:Tensor, y:Tensor, metrics:Metrics)->None:
         metrics.pre_step(x, y)
     def post_step(self, x:Tensor, y:Tensor, logits:Tensor, loss:Tensor,

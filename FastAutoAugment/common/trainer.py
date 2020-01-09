@@ -31,7 +31,7 @@ class Trainer(EnforceOverrides):
         self.model = model
         self.device = device
         self._lossfn = utils.get_lossfn(conf_lossfn).to(device)
-        self._metrics = self._create_metrics(self._epochs, None)
+        self._metrics = self._create_metrics(self._epochs)
         self._tester = Tester(conf_validation, model, device) \
                         if conf_validation else None
 
@@ -40,7 +40,6 @@ class Trainer(EnforceOverrides):
         # as they have state
         optim = self.get_optimizer()
         lr_scheduler = self.get_scheduler(optim)
-        self._metrics = self._create_metrics(self._epochs, optim)
 
         self.pre_fit(train_dl, val_dl, optim, lr_scheduler)
         for epoch in range(self._epochs):
@@ -65,11 +64,11 @@ class Trainer(EnforceOverrides):
     #########################  hooks #########################
     def pre_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                 optim:Optimizer, sched:_LRScheduler)->None:
-        pass
+        self._metrics.pre_run()
 
     def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                  optim:Optimizer, sched:_LRScheduler)->None:
-        pass
+        self._metrics.post_run()
 
     def pre_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                   optim:Optimizer, sched:_LRScheduler)->None:
@@ -89,7 +88,7 @@ class Trainer(EnforceOverrides):
         self._metrics.post_step(x, y, logits, loss, steps)
     #########################  hooks #########################
 
-    def _create_metrics(self, epochs:int, optim:Optional[Optimizer]):
+    def _create_metrics(self, epochs:int):
         return Metrics(self._title, epochs,logger_freq=self._logger_freq)
 
     def _train_epoch(self, train_dl: DataLoader, optim:Optimizer)->None:
