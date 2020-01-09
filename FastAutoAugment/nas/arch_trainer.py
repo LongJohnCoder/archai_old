@@ -4,6 +4,8 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torch import Tensor
+from torch.optim.optimizer import Optimizer
+from torch.optim.lr_scheduler import _LRScheduler
 
 from overrides import overrides, EnforceOverrides
 
@@ -35,8 +37,9 @@ class ArchTrainer(Trainer, EnforceOverrides):
         return loss
 
     @overrides
-    def post_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader]) -> None:
-        super().post_epoch(train_dl, val_dl)
+    def post_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
+                   optim:Optimizer, sched:_LRScheduler) -> None:
+        super().post_epoch(train_dl, val_dl, optim, sched)
         self._draw_model()
 
     def _draw_model(self) -> None:

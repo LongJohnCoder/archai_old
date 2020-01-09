@@ -48,15 +48,21 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
 
     trainer = Trainer(conf_train, model, device)
     trainer.fit(train_dl, test_dl)
+
+    # save metrics
     train_metrics, test_metrics = trainer.get_metrics()
     train_metrics.report_best()
-    test_metrics.report_best()
+    train_metrics.save('eval_train_metrics')
+    if test_metrics:
+        test_metrics.report_best()
+        test_metrics.save('eval_test_metrics')
 
-    save_filepath = logdir_abspath(save_filename)
-    if save_filepath:
-        utils.save(model, save_filepath)
+    # save model
+    save_path = model.save(save_filename)
+    if save_path:
+        logger.info(f"Model saved in {save_path}")
     else:
-        logger.warn('Model is not saved as save file is not in config')
+        logger.info("Model is not saved because file path config not set")
 
 
 
