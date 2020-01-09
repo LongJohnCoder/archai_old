@@ -9,7 +9,7 @@ from typing import Iterable, Tuple, Optional
 from .cell import Cell
 from .operations import Op, DropPath_
 from .model_desc import ModelDesc, AuxTowerDesc
-from ..common.common import get_logger
+from ..common.common import get_logger, logdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
@@ -113,6 +113,11 @@ class Model(nn.Module):
         for module in self.modules():
             if isinstance(module, DropPath_):
                 module.p = p
+
+    def save(self, filename:str)->Optional[str]:
+        save_path = logdir_abspath(filename)
+        if save_path:
+            utils.save(self, save_path)
 
 class AuxTower(nn.Module):
     def __init__(self, aux_tower_desc:AuxTowerDesc, pool_stride:int):

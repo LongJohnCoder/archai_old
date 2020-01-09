@@ -2,10 +2,11 @@
 from typing import Type
 
 import torch
+import yaml
 
 from ..common.common import get_logger, logdir_abspath
 from ..common.config import Config
-from .model_desc import ModelDesc, RunMode
+from .model_desc import RunMode
 from .micro_builder import MicroBuilder
 from .arch_trainer import ArchTrainer
 from . import nas_utils
@@ -33,10 +34,18 @@ def search_arch(conf_search:Config, micro_builder:MicroBuilder,
     # search arch
     arch_trainer = trainer_class(conf_train, model, device)
     arch_trainer.fit(train_dl, val_dl)
-    found_model_desc = arch_trainer.get_model_desc()
+
+    # save metrics
+    train_metrics, val_metrics = arch_trainer.get_metrics()
+    train_metrics.report_best()
+    train_metrics.save('search_train_metrics')
+    if val_metrics:
+       val_metrics.report_best()
+       val_metrics.save('search_val_metrics')
 
     # save found model
-    save_path = nas_utils.save_model_desc(model_desc_filename, found_model_desc)
+    found_model_desc = arch_trainer.get_model_desc()
+    save_path = found_model_desc.save(model_desc_filename)
     if save_path:
         logger.info(f"Best architecture saved in {save_path}")
     else:

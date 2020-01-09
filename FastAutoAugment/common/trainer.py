@@ -31,7 +31,7 @@ class Trainer(EnforceOverrides):
         self.model = model
         self.device = device
         self._lossfn = utils.get_lossfn(conf_lossfn).to(device)
-        self._metrics = self._create_metrics(self._epochs, None)
+        self._metrics = self._create_metrics(self._epochs)
         self._tester = Tester(conf_validation, model, device) \
                         if conf_validation else None
 
@@ -40,18 +40,17 @@ class Trainer(EnforceOverrides):
         # as they have state
         optim = self.get_optimizer()
         lr_scheduler = self.get_scheduler(optim)
-        self._metrics = self._create_metrics(self._epochs, optim)
 
         self.pre_fit(train_dl, val_dl, optim, lr_scheduler)
         for epoch in range(self._epochs):
             self._set_drop_path(epoch, self._epochs)
 
-            self.pre_epoch(train_dl, val_dl)
+            self.pre_epoch(train_dl, val_dl, optim, lr_scheduler)
             self._train_epoch(train_dl, optim)
-            self.post_epoch(train_dl, val_dl)
+            self.post_epoch(train_dl, val_dl, optim, lr_scheduler)
 
             lr_scheduler.step()
-        self.post_fit(train_dl, val_dl)
+        self.post_fit(train_dl, val_dl, optim, lr_scheduler)
 
     def get_optimizer(self)->Optimizer:
         return utils.get_optimizer(self._conf_optim, self.model.parameters())
@@ -62,29 +61,35 @@ class Trainer(EnforceOverrides):
     def get_metrics(self)->Tuple[Metrics, Optional[Metrics]]:
         return self._metrics, self._tester.get_metrics() if self._tester else None
 
-    def get_cur_lr(self)->float:
-        return self._metrics.get_cur_lr()
-
+    #########################  hooks #########################
     def pre_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                 optim:Optimizer, sched:_LRScheduler)->None:
-        pass
-    def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
-        pass
-    def pre_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
-        self._metrics.pre_epoch()
-    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
+        self._metrics.pre_run()
+
+    def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
+                 optim:Optimizer, sched:_LRScheduler)->None:
+        self._metrics.post_run()
+
+    def pre_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
+                  optim:Optimizer, sched:_LRScheduler)->None:
+        self._metrics.pre_epoch(lr=optim.param_groups[0]['lr'])
+
+    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
+                   optim:Optimizer, sched:_LRScheduler)->None:
         self._metrics.post_epoch()
         if val_dl and self._tester:
             self._tester.test(val_dl)
+
     def pre_step(self, x:Tensor, y:Tensor, optim:Optimizer)->None:
         self._metrics.pre_step(x, y)
+
     def post_step(self, x:Tensor, y:Tensor, logits:Tensor, loss:Tensor,
                   steps:int)->None:
         self._metrics.post_step(x, y, logits, loss, steps)
+    #########################  hooks #########################
 
-    def _create_metrics(self, epochs:int, optim:Optional[Optimizer]):
-        return Metrics(self._title, epochs,
-                       optim=optim, logger_freq=self._logger_freq)
+    def _create_metrics(self, epochs:int):
+        return Metrics(self._title, epochs,logger_freq=self._logger_freq)
 
     def _train_epoch(self, train_dl: DataLoader, optim:Optimizer)->None:
         steps = len(train_dl)

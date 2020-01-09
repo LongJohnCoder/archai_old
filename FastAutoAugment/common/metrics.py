@@ -1,30 +1,47 @@
 import copy
 from typing import Optional
+import pathlib
 
-import torch
-from torch.optim.optimizer import Optimizer
-import numpy as np
 from collections import defaultdict
+from torch import Tensor
 
-from torch import nn, Tensor
+import yaml
 
 from . import utils
-from .common import get_logger, get_tb_writer
+from .common import get_logger, get_tb_writer, logdir_abspath
 
 class Metrics:
     """Record top1, top5, loss metrics, track best so far"""
 
-    def __init__(self, title:str, epochs: int,
-                 optim:Optional[Optimizer]=None, logger_freq:int=10) -> None:
+    def __init__(self, title:str, epochs: int, logger_freq:int=10) -> None:
+        self.logger_freq = logger_freq
+        self.title, self.epochs = title, epochs
+
         self.top1 = utils.AverageMeter()
         self.top5 = utils.AverageMeter()
         self.loss = utils.AverageMeter()
-        self.best_top1, self.best_epoch = 0., 0
-        self.logger_freq = logger_freq
-        self.optim = optim
-        self.title = title
-        self.epoch, self.epochs = 0, epochs
-        self.step, self.global_step = 0, 0
+
+        self.reset()
+
+    def reset(self, epochs:Optional[int]=None)->None:
+        self.best_top1, self.best_epoch = 0.0, 0
+        self.epoch = 0
+        self.global_step = 0
+        if epochs is not None:
+            self.epochs = epochs
+
+        self._reset_epoch()
+
+    def _reset_epoch(self)->None:
+        self.top1.reset()
+        self.top5.reset()
+        self.loss.reset()
+        self.step = 0
+
+    def pre_run(self)->None:
+        self.reset()
+    def post_run(self)->None:
+        pass
 
     def pre_step(self, x: Tensor, y: Tensor):
         pass
@@ -67,25 +84,18 @@ class Metrics:
             logger = get_logger()
             logger.info(f"[{self.title}] "
                         f"Final best top1={self.best_top1}, "
-                        f"epoch{self.best_epoch}")
+                        f"epoch={self.best_epoch}")
 
-    def pre_epoch(self):
-        lr = self.get_cur_lr()
+    def pre_epoch(self, lr:Optional[float]=None)->None:
+        self._reset_epoch()
         if lr is not None:
             logger, writer = get_logger(), get_tb_writer()
             if self.logger_freq > 0:
                 logger.info(f"[{self.title}] Epoch: {self.epoch+1} LR {lr}")
             writer.add_scalar(f'{self.title}/lr', lr, self.global_step)
 
-    def get_cur_lr(self) -> Optional[float]:
-        if self.optim is not None:
-            return self.optim.param_groups[0]['lr']
-        else:
-            return None
-
     def post_epoch(self):
         self.epoch += 1
-        self.step = 0
 
         if self.best_top1 < self.top1.avg:
             self.best_epoch = self.epoch
@@ -100,6 +110,13 @@ class Metrics:
     def is_best(self) -> bool:
         return self.epoch == self.best_epoch
 
+    def save(self, filename:str)->Optional[str]:
+        save_path = logdir_abspath(filename)
+        if save_path:
+            if not save_path.endswith('.yaml'):
+                save_path += '.yaml'
+            pathlib.Path(save_path).write_text(yaml.dump(self))
+        return save_path
 
 class Accumulator:
     # TODO: replace this with Metrics class

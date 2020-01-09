@@ -36,7 +36,7 @@ if __name__ == '__main__':
                                              micro_builder=RandomMicroBuilder())
 
     # save model to location specified by eval config
-    nas_utils.save_model_desc(model_desc_filename, model_desc)
+    model_desc.save(model_desc_filename)
 
     # evaluate architecture using eval settings
     micro_builder = RandomMicroBuilder()

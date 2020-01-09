@@ -1,6 +1,11 @@
 from enum import Enum
 from typing import Optional, List
+import pathlib
+
 import yaml
+
+from ..common.common import logdir_abspath
+
 
 class DescBase:
     def serialize(self)->str:
@@ -84,4 +89,19 @@ class ModelDesc(DescBase):
         self.n_classes = n_classes
         self.cell_descs = cell_descs
         self.aux_tower_descs = aux_tower_descs
+
+    def save(self, filename:str)->Optional[str]:
+        save_path = logdir_abspath(filename)
+        if save_path:
+            if not save_path.endswith('.yaml'):
+                save_path += '.yaml'
+            pathlib.Path(save_path).write_text(self.serialize())
+        return save_path
+
+    @staticmethod
+    def load(model_desc_filename:str)->'ModelDesc':
+        model_desc_filepath = logdir_abspath(model_desc_filename)
+        assert model_desc_filepath
+        with open(model_desc_filepath, 'r') as f:
+            return yaml.load(f, Loader=yaml.Loader)
 

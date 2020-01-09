@@ -50,16 +50,18 @@ class BilevelArchTrainer(ArchTrainer):
                                                 self.model, lossfn)
 
     @overrides
-    def pre_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader]) -> None:
-        super().pre_epoch(train_dl, val_dl)
+    def pre_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
+                  optim:Optimizer, sched:_LRScheduler) -> None:
+        super().pre_epoch(train_dl, val_dl, optim, sched)
 
         # prep val set to train alphas
         self._valid_iter = iter(val_dl)  # type: ignore
 
     @overrides
-    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
+    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
+                   optim:Optimizer, sched:_LRScheduler)->None:
         del self._valid_iter # clean up
-        super().post_epoch(train_dl, val_dl)
+        super().post_epoch(train_dl, val_dl, optim, sched)
 
     @overrides
     def pre_step(self, x: Tensor, y: Tensor, optim: Optimizer) -> None:
@@ -76,7 +78,7 @@ class BilevelArchTrainer(ArchTrainer):
             self.device, non_blocking=True)
 
         # update alphas
-        self._bilevel_optim.step(x, y, x_val, y_val, optim, self.get_cur_lr())
+        self._bilevel_optim.step(x, y, x_val, y_val, optim)
 
 class _BilevelOptimizer:
     def __init__(self, w_momentum: float, w_decay: float, alpha_optim: Optimizer,
@@ -127,7 +129,9 @@ class _BilevelOptimizer:
                 va.copy_(a)
 
     def step(self, x_train: Tensor, y_train: Tensor, x_valid: Tensor, y_valid: Tensor,
-             w_optim: Optimizer, lr:float) -> None:
+             w_optim: Optimizer) -> None:
+        # TODO: unlike darts paper, we get lr from optimizer insead of scheduler
+        lr = w_optim.param_groups[0]['lr']
         self._alpha_optim.zero_grad()
 
         # compute the gradient and write it into tensor.grad
@@ -165,6 +169,7 @@ class _BilevelOptimizer:
         # dalpha we have is from the unrolled model so we need to
         # transfer those grades back to our main model
         # update final gradient = dalpha - xi*hessian
+        # TODO: currently alphas lr is same as w lr
         with torch.no_grad():
             for alpha, da, h in zip(self._model.alphas(), dalpha, hessian):
                 alpha.grad = da - lr*h
