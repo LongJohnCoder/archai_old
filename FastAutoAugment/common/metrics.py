@@ -20,7 +20,7 @@ class Metrics:
         self.top1 = utils.AverageMeter()
         self.top5 = utils.AverageMeter()
         self.loss = utils.AverageMeter()
-        self.others = {} # user maintained metrics that would be saved/restored
+        self.custom = {} # user maintained metrics that would be saved/restored
 
         self.reset()
 

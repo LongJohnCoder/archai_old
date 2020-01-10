@@ -34,6 +34,7 @@ class Trainer(EnforceOverrides):
         self._metrics = self._create_metrics(self._epochs)
         self._tester = Tester(conf_validation, model, device) \
                         if conf_validation else None
+        self._metrics.custom['param_byte_size'] = utils.param_size(self.model)
 
     def fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         # optimizers, schedulers needs to be recreated for each fit call

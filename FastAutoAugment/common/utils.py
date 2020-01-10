@@ -78,7 +78,7 @@ class Cutout:
 def param_size(model):
     """count all parameters excluding auxiliary"""
     return np.sum(v.numel() for name, v in model.named_parameters() \
-        if "auxiliary" not in name) / 1e6
+        if "auxiliary" not in name)
 
 
 def save_checkpoint(model:nn.Module, optim:Optimizer, best_top1:float,
