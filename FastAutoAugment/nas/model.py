@@ -1,10 +1,11 @@
-from os import stat
+from typing import Iterable, Tuple, Optional, Any
+from collections import OrderedDict
+
 import torch
 from torch import nn, Tensor
 
 from overrides import overrides
 
-from typing import Iterable, Tuple, Optional
 
 from .cell import Cell
 from .operations import Op, DropPath_
@@ -13,9 +14,12 @@ from ..common.common import get_logger, logdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
-    def __init__(self, model_desc:ModelDesc):
+    def __init__(self, model_desc:Optional[ModelDesc]):
         super().__init__()
+        if model_desc:
+            self._load_model_desc(model_desc)
 
+    def _load_model_desc(self, model_desc:ModelDesc)->None:
         logger = get_logger()
 
         self.desc = model_desc
@@ -114,10 +118,23 @@ class Model(nn.Module):
             if isinstance(module, DropPath_):
                 module.p = p
 
+    @overrides
+    def state_dict(self, *kargs, **kvargs) -> OrderedDict:
+        d = OrderedDict()
+        d['super'] = super().state_dict(*kargs, **kvargs)
+        d['desc'] = self.desc.serialize()
+        return d
+
+    @overrides
+    def load_state_dict(self, state_dict, *kargs, **kvargs):
+        self._load_model_desc(state_dict['desc'])
+        super().load_state_dict(state_dict['super'],*kargs, **kvargs)
+
     def save(self, filename:str)->Optional[str]:
         save_path = logdir_abspath(filename)
         if save_path:
             utils.save(self, save_path)
+
 
 class AuxTower(nn.Module):
     def __init__(self, aux_tower_desc:AuxTowerDesc, pool_stride:int):

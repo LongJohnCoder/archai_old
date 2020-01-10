@@ -10,7 +10,9 @@ from ..common.common import logdir_abspath
 class DescBase:
     def serialize(self)->str:
         return yaml.dump(self)
-    def deserialize(self, v:str)->'DescBase':
+
+    @staticmethod
+    def deserialize(v:str)->'DescBase':
         return yaml.load(v, Loader=yaml.Loader)
 
 
