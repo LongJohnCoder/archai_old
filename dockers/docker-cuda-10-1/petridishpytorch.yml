@@ -260,7 +260,6 @@ dependencies:
     - sklearn==0.0
     - smmap2==2.0.5
     - tensorboard==2.0.1
-    - tensorboardx==1.9
     - terminado==0.8.3
     - testpath==0.4.4
     - timebudget==0.7

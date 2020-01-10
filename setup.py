@@ -10,7 +10,7 @@ install_requires=[
     'warmup-scheduler @ git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git@v0.2',
     'pystopwatch2 @ git+https://github.com/ildoonet/pystopwatch2.git',
     'hyperopt', #  @ git+https://github.com/hyperopt/hyperopt.git
-    'pretrainedmodels', 'tqdm', 'tensorboardx', 'sklearn', 'matplotlib', 'psutil',
+    'pretrainedmodels', 'tqdm', 'sklearn', 'matplotlib', 'psutil',
     'requests', 'tensorwatch', 'gorilla', 'pyyaml', 'timebudget', 'overrides'
 ]
 
