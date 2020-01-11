@@ -47,7 +47,7 @@ class Tester(EnforceOverrides):
         return self._metrics
 
     def pre_test(self, test_dl:DataLoader, epoch_steps:int, metrics:Metrics)->None:
-        metrics.pre_run()
+        metrics.pre_run(False)
         metrics.pre_epoch()
     def post_test(self, test_dl:DataLoader, epoch_steps:int, metrics:Metrics)->None:
         metrics.post_epoch()

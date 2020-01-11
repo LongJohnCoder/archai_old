@@ -26,7 +26,7 @@ if __name__ == '__main__':
     conf_search = conf['nas']['search']
     conf_eval = conf['nas']['eval']
     conf_model_desc = conf_search['model_desc']
-    model_desc_filename = conf_eval['model_desc_file']
+    final_desc_filename = conf_eval['final_desc_filename']
     # endregion
 
     # create model and save it to yaml
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                                              micro_builder=RandomMicroBuilder())
 
     # save model to location specified by eval config
-    model_desc.save(model_desc_filename)
+    model_desc.save(final_desc_filename)
 
     # evaluate architecture using eval settings
     micro_builder = RandomMicroBuilder()

@@ -39,8 +39,9 @@ class Metrics:
         self.loss.reset()
         self.step = 0
 
-    def pre_run(self)->None:
-        self.reset()
+    def pre_run(self, resuming:bool)->None:
+        if not resuming:
+            self.reset()
     def post_run(self)->None:
         pass
 
@@ -116,7 +117,7 @@ class Metrics:
 
     @staticmethod
     def deserialize(serialized:str)->'Metrics':
-        return yaml.load(serialized, Loader=yaml.Loader())
+        return yaml.load(serialized, Loader=yaml.Loader)
 
     def save(self, filename:str)->Optional[str]:
         save_path = logdir_abspath(filename)

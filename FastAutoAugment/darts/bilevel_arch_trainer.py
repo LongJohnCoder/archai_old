@@ -1,5 +1,4 @@
-from typing import Optional, Tuple, Union
-import os
+from typing import Optional, Union
 import copy
 
 import torch
@@ -15,15 +14,14 @@ from ..common.config import Config
 from ..nas.arch_trainer import ArchTrainer
 from ..common import utils
 from ..nas.model import Model
-from ..common.metrics import Metrics
-from ..nas.model_desc import ModelDesc
-from ..common.trainer import Trainer
-from ..nas.vis_model_desc import draw_model_desc
+from ..common.check_point import CheckPoint
+from ..common.common import get_logger
 
 
 class BilevelArchTrainer(ArchTrainer):
-    def __init__(self, conf_train: Config, model: Model, device) -> None:
-        super().__init__(conf_train, model, device)
+    def __init__(self, conf_train: Config, model: Model, device,
+                 check_point:Optional[CheckPoint]) -> None:
+        super().__init__(conf_train, model, device, check_point)
 
         self._conf_w_optim = conf_train['optimizer']
         self._conf_w_lossfn = conf_train['lossfn']
@@ -36,7 +34,7 @@ class BilevelArchTrainer(ArchTrainer):
 
     @overrides
     def pre_fit(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
-                optim: Optimizer, sched: _LRScheduler) -> None:
+                optim: Optimizer, sched: _LRScheduler, resuming:bool) -> None:
 
         # optimizers, schedulers needs to be recreated for each fit call
         # as they have state
@@ -44,10 +42,18 @@ class BilevelArchTrainer(ArchTrainer):
         w_momentum = self._conf_w_optim['momentum']
         w_decay = self._conf_w_optim['decay']
         lossfn = utils.get_lossfn(self._conf_w_lossfn).to(self.device)
-        alpha_optim = utils.get_optimizer(
-            self._conf_alpha_optim, self.model.alphas())
-        self._bilevel_optim = _BilevelOptimizer(w_momentum, w_decay, alpha_optim,
-                                                self.model, lossfn)
+
+        self._bilevel_optim = _BilevelOptimizer(self._conf_alpha_optim, w_momentum,
+                                                w_decay, self.model, lossfn)
+        if resuming:
+            self._bilevel_optim.load_state_dict(self.check_point['bilelvel_optim'])
+
+    @overrides
+    def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
+                 optim:Optimizer, sched:_LRScheduler)->None:
+        # delete state we created in pre_fit
+        del self._bilevel_optim
+        return super().post_fit(train_dl, val_dl, optim, sched)
 
     @overrides
     def pre_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
@@ -74,15 +80,23 @@ class BilevelArchTrainer(ArchTrainer):
             # reinit iterator
             self._valid_iter = iter(self._val_dl)
             x_val, y_val = next(self._valid_iter)
+
         x_val, y_val = x_val.to(self.device), y_val.to(
             self.device, non_blocking=True)
 
         # update alphas
         self._bilevel_optim.step(x, y, x_val, y_val, optim)
 
+    @overrides
+    def update_checkpoint(self, check_point:CheckPoint,
+                          optim:Optimizer, sched:_LRScheduler)->None:
+        super().update_checkpoint(check_point, optim, sched)
+        check_point['bilelvel_optim'] = self._bilevel_optim.state_dict()
+
 class _BilevelOptimizer:
-    def __init__(self, w_momentum: float, w_decay: float, alpha_optim: Optimizer,
-                 model: Union[nn.DataParallel, Model], lossfn: _Loss) -> None:
+    def __init__(self, conf_alpaha_optim:Config, w_momentum: float, w_decay: float,
+                 model: Model, lossfn: _Loss) -> None:
+        logger = get_logger()
         self._w_momentum = w_momentum  # momentum for w
         self._w_weight_decay = w_decay  # weight decay for w
         self._lossfn = lossfn
@@ -94,7 +108,17 @@ class _BilevelOptimizer:
         self._vmodel = copy.deepcopy(model)
 
         # this is the optimizer to optimize alphas parameter
-        self._alpha_optim = alpha_optim
+        self._alpha_optim = utils.get_optimizer(conf_alpaha_optim, model.alphas())
+
+    def state_dict(self)->dict:
+        return {
+            'alpha_optim': self._alpha_optim.state_dict(),
+            'vmodel': self._vmodel.state_dict()
+        }
+
+    def load_state_dict(self, state_dict)->None:
+        self._vmodel.load_state_dict(state_dict['vmodel'])
+        self._alpha_optim.load_state_dict(state_dict['alpha_optim'])
 
     @staticmethod
     def _get_loss(model, lossfn, x, y):

@@ -12,9 +12,11 @@ from .tester import Tester
 from .config import Config
 from . import utils
 from ..common.common import get_logger
+from ..common.check_point import CheckPoint
 
 class Trainer(EnforceOverrides):
-    def __init__(self, conf_train:Config, model:nn.Module, device)->None:
+    def __init__(self, conf_train:Config, model:nn.Module, device,
+                 check_point:Optional[CheckPoint])->None:
         # region config vars
         conf_lossfn = conf_train['lossfn']
         self._aux_weight = conf_train['aux_weight']
@@ -33,42 +35,38 @@ class Trainer(EnforceOverrides):
         self._lossfn = utils.get_lossfn(conf_lossfn).to(device)
         self._tester = Tester(conf_validation, model, device) \
                         if conf_validation else None
+        self.check_point = check_point
 
         self._metrics = self._create_metrics(self._epochs)
         self._metrics.custom['param_byte_size'] = utils.param_size(self.model)
 
     def fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
+        logger = get_logger()
         # optimizers, schedulers needs to be recreated for each fit call
         # as they have state
         optim = self.get_optimizer()
         lr_scheduler = self.get_scheduler(optim)
 
-        self.pre_fit(train_dl, val_dl, optim, lr_scheduler)
+        if self.check_point is not None and 'trainer' in self.check_point:
+            start_epoch = self._restore_checkpoint(optim, lr_scheduler)
+        else:
+            start_epoch = 0
 
-        self._run_epochs(train_dl, val_dl, optim, lr_scheduler, 0)
+        self.pre_fit(train_dl, val_dl, optim, lr_scheduler, start_epoch>0)
 
-    def _run_epochs(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
-                    optim:Optimizer, lr_scheduler:_LRScheduler, start_epoch:int)->None:
         if start_epoch >= self._epochs:
+            logger.warn(f'fit exit: start epoch {start_epoch} > {self._epochs}')
             return # we already finished the run, we might be checkpointed
+
+        self.check_point.clear()
         for epoch in range(start_epoch, self._epochs):
             self._set_drop_path(epoch, self._epochs)
 
             self.pre_epoch(train_dl, val_dl, optim, lr_scheduler)
-            self._train_epoch(train_dl, optim)
+            self._train_epoch(train_dl, optim, lr_scheduler)
             self.post_epoch(train_dl, val_dl, optim, lr_scheduler)
 
-            lr_scheduler.step()
         self.post_fit(train_dl, val_dl, optim, lr_scheduler)
-
-    def state_dict(self, optim:Optimizer, lr_scheduler:_LRScheduler)->dict:
-        chkpt = {
-            'metrics': self._metrics.serialize(),
-            'model': self.model.state_dict(),
-            'optim': optim.state_dict(),
-            'sched': lr_scheduler.state_dict()
-        }
-        return chkpt
 
     def get_optimizer(self)->Optimizer:
         return utils.get_optimizer(self._conf_optim, self.model.parameters())
@@ -81,8 +79,8 @@ class Trainer(EnforceOverrides):
 
     #########################  hooks #########################
     def pre_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
-                optim:Optimizer, sched:_LRScheduler)->None:
-        self._metrics.pre_run()
+                optim:Optimizer, sched:_LRScheduler, resuming:bool)->None:
+        self._metrics.pre_run(resuming)
 
     def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                  optim:Optimizer, sched:_LRScheduler)->None:
@@ -95,6 +93,11 @@ class Trainer(EnforceOverrides):
     def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
                    optim:Optimizer, sched:_LRScheduler)->None:
         self._metrics.post_epoch()
+        if self.check_point is not None and \
+                self._metrics.epoch % self.check_point.frequency == 0:
+            self.check_point.new()
+            self.update_checkpoint(self.check_point, optim, sched)
+            self.check_point.commit()
         if val_dl and self._tester:
             self._tester.test(val_dl)
 
@@ -106,10 +109,39 @@ class Trainer(EnforceOverrides):
         self._metrics.post_step(x, y, logits, loss, steps)
     #########################  hooks #########################
 
+    def _restore_checkpoint(self, optim:Optimizer, sched:_LRScheduler)->int:
+        logger = get_logger()
+
+        last_epoch = self._metrics.epoch
+        assert last_epoch > 0, f'While restoring from checkpoint epoch > 0 is expected but it is {last_epoch}'
+        start_epoch = last_epoch + 1
+
+        state = self.check_point['trainer']
+        self.model.load_state_dict(state['model'])
+        optim.load_state_dict(state['optim'])
+        sched.load_state_dict(state['sched'])
+        logger.warn(f'fit will continue from epoch {start_epoch}')
+        return start_epoch
+
+    def update_checkpoint(self, check_point:CheckPoint,
+                          optim:Optimizer, sched:_LRScheduler)->None:
+        state = {
+            'metrics': self._metrics.serialize(),
+            'model': self.model.state_dict(),
+            'optim': optim.state_dict(),
+            'sched': sched.state_dict()
+        }
+        self.check_point['trainer'] = state
+
     def _create_metrics(self, epochs:int):
+        logger = get_logger()
+        if self.check_point is not None and 'trainer' in self.check_point:
+            logger.warn('Metrics loaded from exisitng checkpoint')
+            return Metrics.deserialize(self.check_point['trainer']['metrics'])
         return Metrics(self._title, epochs,logger_freq=self._logger_freq)
 
-    def _train_epoch(self, train_dl: DataLoader, optim:Optimizer)->None:
+    def _train_epoch(self, train_dl: DataLoader,
+                     optim:Optimizer, sched:_LRScheduler)->None:
         steps = len(train_dl)
         self.model.train()
         for x, y in train_dl:
@@ -134,7 +166,9 @@ class Trainer(EnforceOverrides):
             if self._grad_clip:
                 # TODO: original darts clips alphas as well but pt.darts doesn't
                 nn.utils.clip_grad_norm_(self.model.weights(), self._grad_clip)
+
             optim.step()
+            sched.step()
 
             self.post_step(x, y, logits, loss, steps)
 
