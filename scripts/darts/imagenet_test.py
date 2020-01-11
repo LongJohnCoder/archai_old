@@ -4,7 +4,7 @@ from FastAutoAugment.nas.evaluate import eval_arch
 
 if __name__ == '__main__':
     conf = common_init(config_filepath='confs/imagenet_darts.yaml',
-                       experiment_name='imagenet_eval')
+                       param_args=['--common.experiment_name', 'darts_imagenet_eval'])
 
     conf_eval = conf['nas']['eval']
 

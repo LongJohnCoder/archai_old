@@ -43,7 +43,7 @@ def get_tb_writer() -> SummaryWriterAny:
 
 # initializes random number gen, debugging etc
 def common_init(config_filepath: Optional[str]=None,
-                param_args: list = [], experiment_name='',
+                param_args: list = [],
                 log_level=logging.DEBUG, is_master=True, use_args=True) \
         -> Config:
 
@@ -64,9 +64,10 @@ def common_init(config_filepath: Optional[str]=None,
     sw = StopWatch()
     StopWatch.set(sw)
 
-    _setup_logger(experiment_name)
     global _config_common
     _config_common = conf['common']
+    experiment_name = _config_common['experiment_name']
+    _setup_logger(experiment_name)
     conf_data = conf['dataset']
     _setup_dirs(_config_common, conf_data, experiment_name)
     _setup_gpus(_config_common)

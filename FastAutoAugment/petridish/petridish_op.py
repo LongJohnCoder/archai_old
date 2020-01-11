@@ -29,7 +29,8 @@ class StopGradient(Op):
     @overrides
     def forward(self, x):
         y = x * 1
-        y.register_hook(StopGradient._zero_grad)
+        if self.training: # TODO: check with Dey, without this search time validation doesn't work
+            y.register_hook(StopGradient._zero_grad)
         return y
 
 class StopForwardReductionOp(Op):

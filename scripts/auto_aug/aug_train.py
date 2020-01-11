@@ -6,7 +6,8 @@ from FastAutoAugment.data_aug.train import train_and_eval
 
 if __name__ == '__main__':
     conf = common_init(config_filepath='confs/wresnet40x2_cifar10_b512.yaml',
-        defaults_filepath="confs/defaults.yaml", param_args=["--aug", "fa_reduced_cifar10"])
+                       param_args=["--autoaug.loader.aug", "fa_reduced_cifar10",
+                                   "--common.experiment_name", "autoaug_train"])
     logger = get_logger()
 
     import time

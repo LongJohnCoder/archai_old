@@ -4,7 +4,7 @@ from FastAutoAugment.petridish.petridish_micro_builder import PetridishMicroBuil
 
 if __name__ == '__main__':
     conf = common_init(config_filepath='confs/petridish_cifar.yaml',
-                       experiment_name='petridish_cifar_eval')
+                       param_args=['--common.experiment_name', 'petridish_cifar_eval'])
 
     conf_eval = conf['nas']['eval']
 

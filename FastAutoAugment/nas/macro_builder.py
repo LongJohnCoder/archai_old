@@ -6,6 +6,7 @@ from overrides import EnforceOverrides
 from ..common.config import Config
 from .model_desc import ModelDesc, OpDesc, CellType, NodeDesc, EdgeDesc, \
                         CellDesc, AuxTowerDesc, RunMode, ConvMacroParams
+from ..common.common import get_logger
 
 class MacroBuilder(EnforceOverrides):
     def __init__(self, conf_model_desc: Config,
@@ -96,7 +97,7 @@ class MacroBuilder(EnforceOverrides):
                 alphas_from=alphas_from,
                 run_mode=self.run_mode
             ))
-            # add any nodes from the template to the cell
+            # add any nodes from the template to the just added cell
             self._add_template_nodes(cell_descs[-1])
             # add aux tower
             aux_tower_descs.append(self._get_aux_tower(cell_descs[-1]))
@@ -113,13 +114,19 @@ class MacroBuilder(EnforceOverrides):
         if self.template is None:
             return
 
+        logger = get_logger()
+
         # select cell template
-        ch_out = cell_desc.node_ch_out
         reduction = cell_desc.cell_type == CellType.Reduction
         cell_template = self.reduction_template if reduction else self.normal_template
 
         if cell_template is None:
             return
+
+        if len(cell_desc.nodes) > len(cell_template.nodes):
+            cell_desc.nodes = cell_desc.nodes[:len(cell_template.nodes)]
+            logger.warn('cell nodes trimmed, cell nodes={}, template nodes={}'.format(
+                len(cell_desc.nodes), len(cell_template.nodes)))
 
         # copy each template node to cell
         for node, template_node in zip(cell_desc.nodes, cell_template.nodes):

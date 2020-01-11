@@ -9,7 +9,7 @@ from FastAutoAugment.nas import nas_utils
 
 if __name__ == '__main__':
     conf = common_init(config_filepath='confs/random_cifar.yaml',
-                       experiment_name='random_cifar_eval')
+                       param_args=['--common.experiment_name', 'random_cifar_eval'])
 
     # region config
     conf_eval = conf['nas']['eval']
