@@ -1,11 +1,13 @@
 import argparse
-from typing import Type, Optional
+from typing import List, Type, Optional, Any
 from collections import UserDict
 from typing import Sequence
 from argparse import ArgumentError
 from collections.abc import Mapping, MutableMapping
 import os
 import yaml
+
+from os import stat
 
 # global config instance
 _config:'Config' = None
@@ -64,6 +66,9 @@ class Config(UserDict):
         self._update_from_args(param_args)      # merge from params
         self._update_from_args(self.extra_args) # merge from command line
 
+        self.config_filepath = config_filepath
+        self.config_defaults_filepath = config_defaults_filepath
+
     def _load_from_file(self, filepath:Optional[str])->None:
         if filepath:
             with open(os.path.expanduser(filepath), 'r') as f:
@@ -76,18 +81,30 @@ class Config(UserDict):
             print('config loaded from: ', filepath)
 
     def _update_from_args(self, args:Sequence)->None:
-        for i, arg in enumerate(args):
-            if i % 2 != 0:
-                continue
-            if i == len(args)-1:
-                raise ArgumentError('Value is expected after argument {key}')
+        i = 0
+        while i < len(args)-1:
+            arg = args[i]
             if arg.startswith(("--")):
                 path = arg[len("--"):].split('.')
-                section = self
-                for p in range(len(path)-1):
-                    section = section[path[p]]
-                key = path[-1]
-                section[key] = type(section[key])(args[i+1])
+                i += Config._update_section(self, path, args[i+1])
+            else: # some other arg
+                i += 1
+
+    @staticmethod
+    def _update_section(section:'Config', path:List[str], val:Any)->int:
+        for p in range(len(path)-1):
+            sub_path = path[p]
+            if sub_path in section:
+                section = section[sub_path]
+            else:
+                return 1 # path not found, ignore this
+        key = path[-1] # final leaf node value
+        if key in section:
+            section[key] = type(section[key])(val)
+            return 2 # path was found, increment arg pointer by 2 as we use up val
+        else:
+            return 1 # path not found, ignore this
+
 
     @staticmethod
     def set(instance:'Config')->None:

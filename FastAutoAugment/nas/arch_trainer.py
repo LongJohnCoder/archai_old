@@ -24,7 +24,7 @@ class ArchTrainer(Trainer, EnforceOverrides):
 
         self._l1_alphas = conf_train['l1_alphas']
         self._max_final_edges = conf_train['max_final_edges']
-        self._plotsdir = common.logdir_abspath(conf_train['plotsdir'], True)
+        self._plotsdir = common.expdir_abspath(conf_train['plotsdir'], True)
 
     @overrides
     def compute_loss(self, lossfn: Callable,

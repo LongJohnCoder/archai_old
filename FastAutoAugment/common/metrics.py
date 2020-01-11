@@ -8,7 +8,7 @@ from torch import Tensor
 import yaml
 
 from . import utils
-from .common import get_logger, get_tb_writer, logdir_abspath
+from .common import get_logger, get_tb_writer, expdir_abspath
 
 class Metrics:
     """Record top1, top5, loss metrics, track best so far"""
@@ -120,7 +120,7 @@ class Metrics:
         return yaml.load(serialized, Loader=yaml.Loader)
 
     def save(self, filename:str)->Optional[str]:
-        save_path = logdir_abspath(filename)
+        save_path = expdir_abspath(filename)
         if save_path:
             if not save_path.endswith('.yaml'):
                 save_path += '.yaml'

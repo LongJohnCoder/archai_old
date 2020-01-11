@@ -6,7 +6,7 @@ import os
 import torch
 
 from .config import Config
-from .common import logdir_abspath
+from .common import expdir_abspath
 
 _CallbackType = Callable #[['CheckPoint', *kargs: Any, **kwargs: Any], None]
 class CheckPoint(UserDict):
@@ -23,7 +23,7 @@ class CheckPoint(UserDict):
         super().__init__()
 
         # region config vars
-        self._filepath = logdir_abspath(conf_checkpoint['filename'])
+        self._filepath = expdir_abspath(conf_checkpoint['filename'])
         self.frequency = conf_checkpoint['frequency']
         # endregion
 

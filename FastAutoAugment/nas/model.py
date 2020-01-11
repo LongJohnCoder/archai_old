@@ -10,7 +10,7 @@ from overrides import overrides
 from .cell import Cell
 from .operations import Op, DropPath_
 from .model_desc import ModelDesc, AuxTowerDesc
-from ..common.common import get_logger, logdir_abspath
+from ..common.common import get_logger, expdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
@@ -116,7 +116,7 @@ class Model(nn.Module):
                 module.p = p
 
     def save(self, filename:str)->Optional[str]:
-        save_path = logdir_abspath(filename)
+        save_path = expdir_abspath(filename)
         if save_path:
             utils.save(self, save_path)
         return save_path

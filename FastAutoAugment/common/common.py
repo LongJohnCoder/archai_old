@@ -72,10 +72,10 @@ def common_init(config_filepath: Optional[str]=None,
     _setup_dirs(_config_common, conf_data, experiment_name)
     _setup_gpus(_config_common)
 
-    logdir = _config_common['logdir']
-    if logdir:
+    expdir = _config_common['expdir']
+    if expdir:
         # copy net config to experiment folder for reference
-        with open(os.path.join(logdir, 'full_config.yaml'), 'w') as f:
+        with open(os.path.join(expdir, 'full_config.yaml'), 'w') as f:
             yaml.dump(conf, f, default_flow_style=False)
 
     global _tb_writer
@@ -83,26 +83,26 @@ def common_init(config_filepath: Optional[str]=None,
 
     return conf
 
-def logdir_abspath(subpath:Optional[str], ensure_exists=False)->Optional[str]:
-    logdir = _config_common['logdir']
-    if not subpath or not logdir:
+def expdir_abspath(subpath:Optional[str], ensure_exists=False)->Optional[str]:
+    expdir = _config_common['expdir']
+    if not subpath or not expdir:
         return None
     if subpath:
-        logdir = os.path.join(logdir, subpath)
+        expdir = os.path.join(expdir, subpath)
         if ensure_exists:
-            os.makedirs(logdir, exist_ok=True)
+            os.makedirs(expdir, exist_ok=True)
 
-    return logdir
+    return expdir
 
 def _create_tb_writer(conf_common: Config, is_master=True)\
         -> SummaryWriterAny:
-    logdir = conf_common['logdir']
+    expdir = conf_common['expdir']
     WriterClass = SummaryWriterDummy if not conf_common['enable_tb'] or \
                                         not is_master or \
-                                        not logdir \
+                                        not expdir \
         else SummaryWriter
 
-    return WriterClass(log_dir=os.path.join(logdir, 'tb'))
+    return WriterClass(log_dir=os.path.join(expdir, 'tb'))
 
 
 def _get_formatter() -> logging.Formatter:
@@ -137,20 +137,22 @@ def _setup_dirs(conf_common: Config, conf_data: Config, experiment_name: str):
 
     logdir = conf_common['logdir']
     if logdir:
-        logdir = os.path.expanduser(logdir)
-        logdir = os.path.join(logdir, experiment_name)
-        os.makedirs(logdir, exist_ok=True)
+        logdir = os.path.expanduser(os.path.expandvars(logdir))
+        expdir = os.path.join(logdir, experiment_name)
+        os.makedirs(expdir, exist_ok=True)
 
         # file where logger would log messages
         logfilename = 'logs.log'
-        logfile_path = os.path.join(logdir, logfilename)
+        logfile_path = os.path.join(expdir, logfilename)
         _add_filehandler(logger, logfile_path)
-        logger.info('logdir: %s' % logdir)
+        logger.info('expdir: %s' % expdir)
     else:
+        expdir = ''
         logger.warn(
             'logdir not specified, no logs will be created or any models saved')
 
-    conf_common['logdir'], conf_data['dataroot'] = logdir, dataroot
+    conf_common['logdir'], conf_data['dataroot'], conf_common['expdir'] = \
+        logdir, dataroot, expdir
 
 def _setup_gpus(conf_common):
     logger = get_logger()

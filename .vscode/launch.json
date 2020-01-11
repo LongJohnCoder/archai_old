@@ -88,6 +88,16 @@
                 "--config-defaults", "confs/random_cifar.yaml"
             ]
         },
+        {
+            "name": "ToyE2ERandom cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/random/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml",
+                "--config-defaults", "confs/random_cifar.yaml"
+            ]
+        },
 
         {
             "name": "SearchRandom cifar10",

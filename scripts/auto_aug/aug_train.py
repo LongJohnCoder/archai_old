@@ -1,6 +1,6 @@
 import json
 import os
-from FastAutoAugment.common.common import get_logger, common_init
+from FastAutoAugment.common.common import get_logger, common_init, expdir_abspath
 from FastAutoAugment.data_aug.train import train_and_eval
 
 
@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     import time
     t = time.time()
-    save_path = os.path.join(conf['logdir'], 'model.pth')
+    save_path = expdir_abspath('model.pth')
     result = train_and_eval(conf, val_ratio=conf['val_ratio'], val_fold=conf['val_fold'],
                             save_path=save_path, only_eval=conf['only_eval'], metric='test')
     elapsed = time.time() - t

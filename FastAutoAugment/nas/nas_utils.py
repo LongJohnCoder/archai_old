@@ -8,7 +8,7 @@ from .micro_builder import MicroBuilder
 from ..common.config import Config
 from .model import Model
 from ..common.data import get_dataloaders
-from ..common.common import get_logger, logdir_abspath
+from ..common.common import get_logger, expdir_abspath
 from ..common.check_point import CheckPoint
 
 
