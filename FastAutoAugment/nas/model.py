@@ -119,6 +119,7 @@ class Model(nn.Module):
         save_path = logdir_abspath(filename)
         if save_path:
             utils.save(self, save_path)
+        return save_path
 
 
 class AuxTower(nn.Module):
