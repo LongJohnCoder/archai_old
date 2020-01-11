@@ -46,6 +46,7 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
     train_dl, _, test_dl = nas_utils.get_data(conf_loader)
     assert train_dl is not None and test_dl is not None
 
+    # create trainer and fit
     trainer = Trainer(conf_train, model, device)
     trainer.fit(train_dl, test_dl)
 
