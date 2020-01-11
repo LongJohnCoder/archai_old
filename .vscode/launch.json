@@ -69,7 +69,17 @@
         },
 
         {
-            "name": "ToyTestRanddom cifar10",
+            "name": "ToySearchRandom cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/random/cifar_search.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml",
+                "--config-defaults", "confs/random_cifar.yaml"
+            ]
+        },
+        {
+            "name": "ToyTestRandom cifar10",
             "type": "python",
             "request": "launch",
             "program": "${cwd}/scripts/random/cifar_eval.py",
@@ -77,6 +87,14 @@
             "args": ["--config", "confs/cifar_toy.yaml",
                 "--config-defaults", "confs/random_cifar.yaml"
             ]
+        },
+
+        {
+            "name": "SearchRandom cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/random/cifar_search.py",
+            "console": "integratedTerminal"
         },
         {
             "name": "TestRandom cifar10",

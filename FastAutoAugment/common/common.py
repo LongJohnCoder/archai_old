@@ -47,6 +47,14 @@ def common_init(config_filepath: Optional[str]=None,
                 log_level=logging.DEBUG, is_master=True, use_args=True) \
         -> Config:
 
+    # TODO: figure out the best way to do this
+    datadir = os.environ.get('PT_DATA_DIR', '')
+    logdir = os.environ.get('PT_OUTPUT_DIR', '')
+    if datadir and logdir:
+        # prepend so if supplied from outside it takes back seat
+        param_args = ['--nas.eval.loader.dataset.dataroot', datadir,
+                       '--common.logdir', logdir] + param_args
+
     conf = Config(config_filepath=config_filepath,
                   param_args=param_args,
                   use_args=use_args)
