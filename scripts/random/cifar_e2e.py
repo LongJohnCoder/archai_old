@@ -34,7 +34,7 @@ if __name__ == '__main__':
     experiment_dir = os.path.join(logdir, experiment_name)
 
     # see if search has already produced the output
-    final_desc_filepath = os.path.join(experiment_dir, 'final_model_desc.yaml')
+    final_desc_filepath = os.path.join(experiment_dir, conf['nas']['search']['final_desc_filename'])
     if not resume or not os.path.exists(final_desc_filepath):
         print(f'Starting {search_script}...')
         result = subprocess.run(
@@ -56,9 +56,10 @@ if __name__ == '__main__':
     experiment_dir = os.path.join(logdir, experiment_name)
 
     # if eval has already produced the output, skip eval run
-    model_filepath = os.path.join(experiment_dir, 'model.pt')
+    model_filepath = os.path.join(experiment_dir, conf['nas']['eval']['save_filename'])
     if not resume or not os.path.exists(model_filepath):
         # copy output of search to eval folder
+        # TODO: take final_desc_filename from eval config
         os.makedirs(experiment_dir, exist_ok=True)
         shutil.copy2(final_desc_filepath, experiment_dir)
 
