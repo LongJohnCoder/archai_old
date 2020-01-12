@@ -1,4 +1,5 @@
 import os
+import sys
 
 from core import *
 from torch_backend import *
@@ -110,6 +111,11 @@ test_set = list(zip(*preprocess(dataset['valid'], transforms).values()))
 print(f'Finished in {timer():.2} seconds')
 
 def train(model, lr_schedule, train_set, test_set, batch_size, num_workers=0):
+    # if debugging in vscode, workers > 0 gets termination
+    if 'pydevd' in sys.modules:
+        num_workers = 0
+        print('Debugger is detected, lower performance settings may be used.')
+
     train_batches = DataLoader(train_set, batch_size, shuffle=True, set_random_choices=True, num_workers=num_workers)
     test_batches = DataLoader(test_set, batch_size, shuffle=False, num_workers=num_workers)
 
