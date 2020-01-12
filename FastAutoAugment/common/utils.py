@@ -1,6 +1,6 @@
 
 import  os
-from typing import Iterable, Type, MutableMapping, Mapping
+from typing import Iterable, Type, MutableMapping, Mapping, Any
 import  numpy as np
 import  shutil
 
@@ -253,6 +253,52 @@ def get_lossfn(conf_lossfn:Config)->_Loss:
         return SmoothCrossEntropyLoss(smoothing=conf_lossfn['smoothing'])
     else:
         raise ValueError('criterian type "{}" is not supported'.format(type))
+
+def state_dict(val):
+    d = getattr(val, '__dict__', None)
+    if d is None:
+        return val # not an object
+
+    res = {}
+    for k,v in val.__dict__.items():
+        res[k] = state_dict(v)
+    return res
+
+def load_state_dict(val, d:dict)->bool:
+    dd = getattr(val, '__dict__', None)
+    if dd is None:
+        return False
+
+    for k,v in d.items():
+        if isinstance(v, dict):
+            if load_state_dict(getattr(val, k), v):
+               continue
+        setattr(val, k, v)
+    return True
+
+def deep_comp(o1:Any, o2:Any)->bool:
+    # NOTE: dict don't have __dict__
+    o1d = getattr(o1, '__dict__', None)
+    o2d = getattr(o2, '__dict__', None)
+
+    # if both are objects
+    if o1d is not None and o2d is not None:
+        # we will compare their dictionaries
+        o1, o2 = o1.__dict__, o2.__dict__
+
+    if o1 is not None and o2 is not None:
+        # if both are dictionaries, we will compare each key
+        if isinstance(o1, dict) and isinstance(o2, dict):
+            for k in set().union(o1.keys() ,o2.keys()):
+                if k in o1 and k in o2:
+                    if not deep_comp(o1[k], o2[k]):
+                        return False
+                else:
+                    return False # some key missing
+            return True
+    # mismatched object types or both are scalers, or one or both None
+    return o1 == o2
+
 
 # TODO: replace this with SmoothCrossEntropyLoss class
 # def cross_entropy_smooth(input: torch.Tensor, target, size_average=True, label_smoothing=0.1):

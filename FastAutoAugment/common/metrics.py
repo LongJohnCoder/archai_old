@@ -112,19 +112,20 @@ class Metrics:
     def is_best(self) -> bool:
         return self.epoch == self.best_epoch
 
-    def serialize(self)->str:
-        return yaml.dump(self)
+    def state_dict(self)->dict:
+        d = utils.state_dict(self)
+        assert isinstance(d, dict)
+        return d
 
-    @staticmethod
-    def deserialize(serialized:str)->'Metrics':
-        return yaml.load(serialized, Loader=yaml.Loader)
+    def load_state_dict(self, state_dict:dict)->None:
+        utils.load_state_dict(self, state_dict)
 
     def save(self, filename:str)->Optional[str]:
         save_path = expdir_abspath(filename)
         if save_path:
             if not save_path.endswith('.yaml'):
                 save_path += '.yaml'
-            pathlib.Path(save_path).write_text(self.serialize())
+            pathlib.Path(save_path).write_text(yaml.dump(self))
         return save_path
 
 class Accumulator:

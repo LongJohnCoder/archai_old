@@ -6,7 +6,7 @@ import shutil
 
 from FastAutoAugment.common.common import common_init, get_config_common
 
-if __name__ == '__main__':
+def main():
     # accept search and eval scripts to run
     # config file can be supplied using --config
     parser = argparse.ArgumentParser(description='NAS E2E Runs')
@@ -77,3 +77,9 @@ if __name__ == '__main__':
     print('Search and eval done.')
     exit(0)
 
+if __name__ == '__main__':
+    try:
+        main()
+    except (KeyboardInterrupt, SystemExit):
+        print('Interupted by keyboard')
+        exit(0)
