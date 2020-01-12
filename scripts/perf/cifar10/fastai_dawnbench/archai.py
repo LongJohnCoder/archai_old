@@ -21,7 +21,7 @@ def train_test(conf_eval:Config):
     # endregion
 
     device = torch.device(conf_eval['device'])
-    checkpoint = CheckPoint(conf_checkpoint, resume)
+    checkpoint = CheckPoint(conf_checkpoint, resume) if conf_checkpoint is not None else None
     model = DawnNet().to(device)
 
     # get data
@@ -53,6 +53,8 @@ if __name__ == '__main__':
 
     conf_eval = conf['nas']['eval']
 
+    conf_eval['checkpoint'] = None
+    conf_eval['resume'] = False
     conf_eval['trainer']['epochs'] = 35
     conf_eval['trainer']['drop_path_prob'] = 0.0
     conf_eval['loader']['cutout'] = 0
