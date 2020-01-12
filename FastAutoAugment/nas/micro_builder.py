@@ -1,11 +1,8 @@
-from abc import ABC, abstractmethod
-from typing import Optional, Tuple, List
+from abc import ABC
 
 from overrides import EnforceOverrides
 
-from .model_desc import ModelDesc, CellDesc
-from ..common.trainer import Trainer
-from ..common.config import Config
+from .model_desc import ModelDesc
 
 class MicroBuilder(ABC, EnforceOverrides):
     def register_ops(self)->None:

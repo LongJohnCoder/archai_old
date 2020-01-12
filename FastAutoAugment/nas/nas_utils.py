@@ -1,6 +1,5 @@
 from typing import Tuple, Optional
 
-import yaml
 from torch.utils.data.dataloader import DataLoader
 
 from .model_desc import RunMode, ModelDesc
@@ -9,7 +8,8 @@ from .micro_builder import MicroBuilder
 from ..common.config import Config
 from .model import Model
 from ..common.data import get_dataloaders
-from ..common.common import get_logger, logdir_abspath
+from ..common.common import get_logger, expdir_abspath
+from ..common.check_point import CheckPoint
 
 
 def create_model_desc(conf_model_desc: Config, run_mode:RunMode,
@@ -33,7 +33,32 @@ def create_model(conf_model_desc: Config, device, run_mode:RunMode,
     model_desc = create_model_desc(conf_model_desc, run_mode,
                                    micro_builder=micro_builder,
                                    template_model_desc=template_model_desc)
+    return model_from_desc(model_desc, device)
 
+def model_and_checkpoint(conf_checkpoint:Config, resume:bool, full_desc_filename:str,
+                 conf_model_desc: Config, device, run_mode:RunMode,
+                 micro_builder: Optional[MicroBuilder]=None,
+                 template_model_desc:Optional[ModelDesc]=None)->Tuple[Model, CheckPoint]:
+    logger = get_logger()
+    checkpoint = CheckPoint(conf_checkpoint, resume)
+    if micro_builder:
+        micro_builder.register_ops()
+    if checkpoint.is_empty():
+        logger.info('Checkpoint not found or resume=False, starting from scratch')
+        # create model
+        model = create_model(conf_model_desc, device,
+                                    run_mode=RunMode.EvalTrain,
+                                    micro_builder=micro_builder,
+                                    template_model_desc=template_model_desc)
+        model.desc.save(full_desc_filename) # save copy of full model desc
+    else:
+        logger.info('Checkpoint found, loading last model')
+        model_desc = ModelDesc.load(full_desc_filename)
+        model = model_from_desc(model_desc, device)
+
+    return model, checkpoint
+
+def model_from_desc(model_desc, device)->Model:
     model = Model(model_desc)
     # TODO: enable DataParallel
     # if data_parallel:
@@ -41,7 +66,6 @@ def create_model(conf_model_desc: Config, device, run_mode:RunMode,
     # else:
     model = model.to(device)
     return model
-
 
 def get_data(conf_loader:Config)\
         -> Tuple[Optional[DataLoader], Optional[DataLoader], Optional[DataLoader]]:

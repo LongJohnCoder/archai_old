@@ -10,16 +10,13 @@ from overrides import overrides
 from .cell import Cell
 from .operations import Op, DropPath_
 from .model_desc import ModelDesc, AuxTowerDesc
-from ..common.common import get_logger, logdir_abspath
+from ..common.common import get_logger, expdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
-    def __init__(self, model_desc:Optional[ModelDesc]):
+    def __init__(self, model_desc:ModelDesc):
         super().__init__()
-        if model_desc:
-            self._load_model_desc(model_desc)
 
-    def _load_model_desc(self, model_desc:ModelDesc)->None:
         logger = get_logger()
 
         self.desc = model_desc
@@ -118,22 +115,11 @@ class Model(nn.Module):
             if isinstance(module, DropPath_):
                 module.p = p
 
-    @overrides
-    def state_dict(self, *kargs, **kvargs) -> OrderedDict:
-        d = OrderedDict()
-        d['super'] = super().state_dict(*kargs, **kvargs)
-        d['desc'] = self.desc.serialize()
-        return d
-
-    @overrides
-    def load_state_dict(self, state_dict, *kargs, **kvargs):
-        self._load_model_desc(state_dict['desc'])
-        super().load_state_dict(state_dict['super'],*kargs, **kvargs)
-
     def save(self, filename:str)->Optional[str]:
-        save_path = logdir_abspath(filename)
+        save_path = expdir_abspath(filename)
         if save_path:
             utils.save(self, save_path)
+        return save_path
 
 
 class AuxTower(nn.Module):

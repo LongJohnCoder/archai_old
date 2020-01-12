@@ -7,9 +7,8 @@ from FastAutoAugment.nas.search_arch import create_model
 
 def test_cell_shape():
     conf = common_init(config_filepath=None,
-                       defaults_filepath='confs/defaults.yaml',
-                       experiment_name=None, use_args=False,
-                       param_args=['--common.logdir', ''])
+                       param_args=['--common.logdir', '',
+                                   '--common.experiment_name', 'unit_test'])
 
     conf_data = conf['dataset']
     conf_search = conf['nas']['search']

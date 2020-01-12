@@ -1,10 +1,11 @@
 from enum import Enum
 from typing import Optional, List
 import pathlib
+import os
 
 import yaml
 
-from ..common.common import logdir_abspath
+from ..common.common import expdir_abspath
 
 
 class DescBase:
@@ -93,7 +94,7 @@ class ModelDesc(DescBase):
         self.aux_tower_descs = aux_tower_descs
 
     def save(self, filename:str)->Optional[str]:
-        save_path = logdir_abspath(filename)
+        save_path = expdir_abspath(filename)
         if save_path:
             if not save_path.endswith('.yaml'):
                 save_path += '.yaml'
@@ -102,8 +103,11 @@ class ModelDesc(DescBase):
 
     @staticmethod
     def load(model_desc_filename:str)->'ModelDesc':
-        model_desc_filepath = logdir_abspath(model_desc_filename)
-        assert model_desc_filepath
+        model_desc_filepath = expdir_abspath(model_desc_filename)
+        if not model_desc_filepath or not os.path.exists(model_desc_filepath):
+            raise RuntimeError("Model description file is not found."
+                "Typically this file should be generated from the search."
+                "Please copy this file to '{}'".format(model_desc_filepath))
         with open(model_desc_filepath, 'r') as f:
             return yaml.load(f, Loader=yaml.Loader)
 

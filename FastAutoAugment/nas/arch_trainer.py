@@ -15,15 +15,16 @@ from ..nas.model import Model
 from ..nas.model_desc import ModelDesc
 from ..common.trainer import Trainer
 from ..nas.vis_model_desc import draw_model_desc
-
+from ..common.check_point import CheckPoint
 
 class ArchTrainer(Trainer, EnforceOverrides):
-    def __init__(self, conf_train: Config, model: Model, device) -> None:
-        super().__init__(conf_train, model, device)
+    def __init__(self, conf_train: Config, model: Model, device,
+                 check_point:Optional[CheckPoint]) -> None:
+        super().__init__(conf_train, model, device, check_point)
 
         self._l1_alphas = conf_train['l1_alphas']
         self._max_final_edges = conf_train['max_final_edges']
-        self._plotsdir = common.logdir_abspath(conf_train['plotsdir'], True)
+        self._plotsdir = common.expdir_abspath(conf_train['plotsdir'], True)
 
     @overrides
     def compute_loss(self, lossfn: Callable,

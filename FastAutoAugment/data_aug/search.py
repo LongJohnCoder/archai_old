@@ -21,7 +21,7 @@ from ..common.metrics import Accumulator
 from ..networks import get_model, num_class
 from ..common.augmentations import augment_list
 from .train import train_and_eval
-from ..common.common import get_logger, logdir_abspath
+from ..common.common import get_logger, expdir_abspath
 
 from ..common.config import Config
 from ..common.stopwatch import StopWatch
@@ -74,7 +74,7 @@ def _train_model(conf, dataroot, augment, val_ratio, val_fold, save_path=None,
 
 def _get_model_filepath(dataset, model, tag)->Optional[str]:
     filename = '%s_%s_%s.model' % (dataset, model, tag)
-    return logdir_abspath(filename)
+    return expdir_abspath(filename)
 
 def _train_no_aug(conf):
     logger, sw = get_logger(), StopWatch.get()
@@ -82,7 +82,6 @@ def _train_no_aug(conf):
     # region conf vars
     conf_data     = conf['dataset']
     dataroot    = conf['dataroot']
-    logdir      = conf['logdir']
     redis_ip    = conf['redis']
     conf_loader = conf['autoaug']['loader']
     conf_model  = conf['autoaug']['model']
@@ -157,7 +156,6 @@ def search(conf):
     # region conf vars
     conf_data     = conf['dataset']
     dataroot    = conf['dataroot']
-    logdir      = conf['logdir']
     redis_ip    = conf['redis']
     conf_loader = conf['autoaug']['loader']
     conf_model  = conf['autoaug']['model']
