@@ -174,7 +174,7 @@ class Trainer(EnforceOverrides):
 
             if self._grad_clip:
                 # TODO: original darts clips alphas as well but pt.darts doesn't
-                nn.utils.clip_grad_norm_(self.model.weights(), self._grad_clip)
+                nn.utils.clip_grad_norm_(self.model.parameters(), self._grad_clip)
 
             optim.step()
             sched.step()

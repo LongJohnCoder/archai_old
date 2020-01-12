@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch import nn
 from core import *
-from collections import namedtuple 
+from collections import namedtuple
 from itertools import count
 
 torch.backends.cudnn.benchmark = True
@@ -15,7 +15,7 @@ def _(*xs):
 
 @to_numpy.register(torch.Tensor)
 def _(x):
-    return x.detach().cpu().numpy()  
+    return x.detach().cpu().numpy()
 
 @pad.register(torch.Tensor)
 def _(x, border):
@@ -23,9 +23,9 @@ def _(x, border):
 
 @transpose.register(torch.Tensor)
 def _(x, source, target):
-    return x.permute([source.index(d) for d in target]) 
+    return x.permute([source.index(d) for d in target])
 
-def to(*args, **kwargs): 
+def to(*args, **kwargs):
     return lambda x: x.to(*args, **kwargs)
 
 @flip_lr.register(torch.Tensor)
@@ -40,7 +40,7 @@ from functools import lru_cache as cache
 
 @cache(None)
 def cifar10(root='./data'):
-    try: 
+    try:
         import torchvision
         download = lambda train: torchvision.datasets.CIFAR10(root=root, train=train, download=True)
         return {k: {'data': v.data, 'targets': v.targets} for k,v in [('train', download(train=True)), ('valid', download(train=False))]}
@@ -51,9 +51,9 @@ def cifar10(root='./data'):
             'train': {'data': train_images, 'targets': train_labels.squeeze()},
             'valid': {'data': valid_images, 'targets': valid_labels.squeeze()}
         }
-             
+
 cifar10_mean, cifar10_std = [
-    (125.31, 122.95, 113.87), # equals np.mean(cifar10()['train']['data'], axis=(0,1,2)) 
+    (125.31, 122.95, 113.87), # equals np.mean(cifar10()['train']['data'], axis=(0,1,2))
     (62.99, 62.09, 66.70), # equals np.std(cifar10()['train']['data'], axis=(0,1,2))
 ]
 cifar10_classes= 'airplane, automobile, bird, cat, deer, dog, frog, horse, ship, truck'.split(', ')
@@ -71,13 +71,13 @@ class DataLoader():
         self.dataloader = torch.utils.data.DataLoader(
             dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True, shuffle=shuffle, drop_last=drop_last
         )
-    
+
     def __iter__(self):
         if self.set_random_choices:
-            self.dataset.set_random_choices() 
+            self.dataset.set_random_choices()
         return ({'input': x.to(device).half(), 'target': y.to(device).long()} for (x,y) in self.dataloader)
-    
-    def __len__(self): 
+
+    def __len__(self):
         return len(self.dataloader)
 
 #GPU dataloading
@@ -86,7 +86,7 @@ chunks = lambda data, splits: (data[start:end] for (start, end) in zip(splits, s
 even_splits = lambda N, num_chunks: np.cumsum([0] + [(N//num_chunks)+1]*(N % num_chunks)  + [N//num_chunks]*(num_chunks - (N % num_chunks)))
 
 def shuffled(xs, inplace=False):
-    xs = xs if inplace else copy.copy(xs) 
+    xs = xs if inplace else copy.copy(xs)
     np.random.shuffle(xs)
     return xs
 
@@ -104,7 +104,7 @@ class GPUBatches():
         self.splits = list(range(0, N+1, batch_size))
         if not drop_last and self.splits[-1] != N:
             self.splits.append(N)
-     
+
     def __iter__(self):
         data, targets = self.dataset['data'], self.dataset['targets']
         for transform in self.transforms:
@@ -113,8 +113,8 @@ class GPUBatches():
             i = torch.randperm(len(data), device=device)
             data, targets = data[i], targets[i]
         return ({'input': x.clone(), 'target': y} for (x, y) in zip(chunks(data, self.splits), chunks(targets, self.splits)))
-    
-    def __len__(self): 
+
+    def __len__(self):
         return len(self.splits) - 1
 
 #####################
@@ -126,20 +126,33 @@ class Network(nn.Module):
     def __init__(self, net):
         super().__init__()
         self.graph = build_graph(net)
-        for path, (val, _) in self.graph.items(): 
+        for path, (val, _) in self.graph.items():
             setattr(self, path.replace('/', '_'), val)
-    
+
     def nodes(self):
         return (node for node, _ in self.graph.values())
-    
+
     def forward(self, inputs):
         outputs = dict(inputs)
+        # d = []
+        # f = []
         for k, (node, ins) in self.graph.items():
+            # kc = k.replace('/', '_')
+            # d += ['self.' + kc+ ' = ' + str(node)]
             #only compute nodes that are not supplied as inputs.
-            if k not in outputs: 
+            if k not in outputs:
+                # inc = ','.join([x.replace('/', '_') for x in ins])
+                # f += [f'{kc} = self.{kc}({inc})']
                 outputs[k] = node(*[outputs[x] for x in ins])
+
+        # defs = '\n'.join(d)
+        # ffs = '\n'.join(f)
+        # print('--------------------')
+        # print(defs)
+        # print('--------------------')
+        # print(ffs)
         return outputs
-    
+
     def half(self):
         for node in self.nodes():
             if isinstance(node, nn.Module) and not isinstance(node, nn.BatchNorm2d):
@@ -150,18 +163,18 @@ class Identity(namedtuple('Identity', [])):
     def __call__(self, x): return x
 
 class Add(namedtuple('Add', [])):
-    def __call__(self, x, y): return x + y 
-    
+    def __call__(self, x, y): return x + y
+
 class AddWeighted(namedtuple('AddWeighted', ['wx', 'wy'])):
-    def __call__(self, x, y): return self.wx*x + self.wy*y 
+    def __call__(self, x, y): return self.wx*x + self.wy*y
 
 class Mul(nn.Module):
     def __init__(self, weight):
         super().__init__()
         self.weight = weight
-    def __call__(self, x): 
+    def __call__(self, x):
         return x*self.weight
-    
+
 class Flatten(nn.Module):
     def forward(self, x): return x.view(x.size(0), x.size(1))
 
@@ -188,25 +201,25 @@ class GhostBatchNorm(BatchNorm):
             self.running_mean = torch.mean(self.running_mean.view(self.num_splits, self.num_features), dim=0).repeat(self.num_splits)
             self.running_var = torch.mean(self.running_var.view(self.num_splits, self.num_features), dim=0).repeat(self.num_splits)
         return super().train(mode)
-        
+
     def forward(self, input):
         N, C, H, W = input.shape
         if self.training or not self.track_running_stats:
             return nn.functional.batch_norm(
-                input.view(-1, C*self.num_splits, H, W), self.running_mean, self.running_var, 
+                input.view(-1, C*self.num_splits, H, W), self.running_mean, self.running_var,
                 self.weight.repeat(self.num_splits), self.bias.repeat(self.num_splits),
-                True, self.momentum, self.eps).view(N, C, H, W) 
+                True, self.momentum, self.eps).view(N, C, H, W)
         else:
             return nn.functional.batch_norm(
-                input, self.running_mean[:self.num_features], self.running_var[:self.num_features], 
+                input, self.running_mean[:self.num_features], self.running_var[:self.num_features],
                 self.weight, self.bias, False, self.momentum, self.eps)
 
 # Losses
 class CrossEntropyLoss(namedtuple('CrossEntropyLoss', [])):
     def __call__(self, log_probs, target):
         return torch.nn.functional.nll_loss(log_probs, target, reduction='none')
-    
-class KLLoss(namedtuple('KLLoss', [])):        
+
+class KLLoss(namedtuple('KLLoss', [])):
     def __call__(self, log_probs):
         return -log_probs.mean(dim=1)
 
@@ -235,7 +248,7 @@ trainable_params = lambda model: {k:p for k,p in model.named_parameters() if p.r
 
 #####################
 ## Optimisers
-##################### 
+#####################
 
 from functools import partial
 
@@ -266,7 +279,7 @@ def opt_step(update, param_schedule, step_number, weights, opt_state):
 
 LARS = partial(optimiser, update=LARS_update, state_init=zeros_like)
 SGD = partial(optimiser, update=nesterov_update, state_init=zeros_like)
-  
+
 #####################
 ## training
 #####################
@@ -276,17 +289,17 @@ def reduce(batches, state, steps):
     #state: is a dictionary
     #steps: are functions that take (batch, state)
     #and return a dictionary of updates to the state (or None)
-    
-    for batch in chain(batches, [None]): 
-    #we send an extra batch=None at the end for steps that 
+
+    for batch in chain(batches, [None]):
+    #we send an extra batch=None at the end for steps that
     #need to do some tidying-up (e.g. log_activations)
         for step in steps:
             updates = step(batch, state)
             if updates:
                 for k,v in updates.items():
-                    state[k] = v                  
+                    state[k] = v
     return state
-  
+
 #define keys in the state dict as constants
 MODEL = 'model'
 LOSS = 'loss'
@@ -332,7 +345,7 @@ def opt_steps(batch, state):
 
 def log_activations(node_names=('loss', 'acc')):
     def step(batch, state):
-        if '_tmp_logs_' not in state: 
+        if '_tmp_logs_' not in state:
             state['_tmp_logs_'] = []
         if batch:
             state['_tmp_logs_'].extend((k, state[OUTPUT][k].detach()) for k in node_names)
@@ -360,13 +373,13 @@ default_train_steps = (forward(training_mode=True), log_activations(('loss', 'ac
 default_valid_steps = (forward(training_mode=False), log_activations(('loss', 'acc')))
 
 
-def train_epoch(state, timer, train_batches, valid_batches, train_steps=default_train_steps, valid_steps=default_valid_steps, 
+def train_epoch(state, timer, train_batches, valid_batches, train_steps=default_train_steps, valid_steps=default_valid_steps,
                 on_epoch_end=(lambda state: state)):
     train_summary, train_time = epoch_stats(on_epoch_end(reduce(train_batches, state, train_steps))), timer()
     valid_summary, valid_time = epoch_stats(reduce(valid_batches, state, valid_steps)), timer(include_in_total=False) #DAWNBench rules
     return {
-        'train': union({'time': train_time}, train_summary), 
-        'valid': union({'time': valid_time}, valid_summary), 
+        'train': union({'time': train_time}, train_summary),
+        'valid': union({'time': valid_time}, valid_summary),
         'total time': timer.total_time
     }
 
@@ -383,7 +396,7 @@ def fine_tune_bn_stats(state, batches, model_key=VALID_MODEL):
 #misc
 def warmup_cudnn(model, loss, batch):
     #run forward and backward pass of the model
-    #to allow benchmarking of cudnn kernels 
+    #to allow benchmarking of cudnn kernels
     reduce([batch], {MODEL: model, LOSS: loss}, [forward(True), backward()])
     torch.cuda.synchronize()
 
@@ -409,5 +422,5 @@ def eigens(patches):
 def whitening_filter(Λ, V, eps=1e-2):
     filt = nn.Conv2d(3, 27, kernel_size=(3,3), padding=(1,1), bias=False)
     filt.weight.data = (V/torch.sqrt(Λ+eps)[:,None,None,None])
-    filt.weight.requires_grad = False 
+    filt.weight.requires_grad = False
     return filt
