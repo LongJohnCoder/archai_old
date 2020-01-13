@@ -153,6 +153,20 @@ def get_optim_lr(optimizer:Optimizer)->float:
         return param_group['lr']
     raise RuntimeError('optimizer did not had any param_group named lr!')
 
+def ensure_pytorch_ver(min_ver:str, error_msg:str)->bool:
+    tv = torch.__version__.split('.')
+    req = min_ver.split('.')
+    for i,j in zip(tv, req):
+        i,j = int(i), int(j)
+        if i > j:
+            return True
+        if i < j:
+            if error_msg:
+                raise RuntimeError(f'Minimum required PyTorch version is {min_ver} but installed version is {torch.__version__}: {error_msg}')
+            return False
+    return True
+
+
 def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
         steps_per_epoch:Optional[int])-> Tuple[Optional[_LRScheduler], bool]:
 
@@ -178,9 +192,10 @@ def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
             gamma = conf_lrs['gamma']
             scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
         elif lr_scheduler_type == 'one_cycle':
+            assert steps_per_epoch is not None
+            ensure_pytorch_ver('1.3.0', 'LR scheduler OneCycleLR is not available.')
             max_lr = conf_lrs['max_lr']
             epoch_or_step = False
-            assert steps_per_epoch is not None
             scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=max_lr,
                             epochs=epochs, steps_per_epoch=steps_per_epoch,
                         )  # TODO: other params
