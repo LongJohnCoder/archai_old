@@ -59,6 +59,9 @@ class Tester(EnforceOverrides):
     def load_state_dict(self, state_dict:dict)->None:
         self._metrics.load_state_dict(state_dict['metrics'])
 
+    def increment_epoch(self):
+        self._metrics.increment_epoch()
+
     def pre_test(self, resuming:bool)->None:
         self._metrics.pre_run(resuming)
     def post_test(self)->None:

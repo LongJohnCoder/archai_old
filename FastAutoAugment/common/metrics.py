@@ -82,11 +82,13 @@ class Metrics:
                     f'{self.step_time.avg:.1f} s/step '
                     f'{self.run_time.avg:.1f} s/run')
 
+    def increment_epoch(self):
+        self.epoch += 1
+
     def report_cur(self, steps: int):
         if self.logger_freq > 0 and \
                 (self.step % self.logger_freq == 0 or \
-                 self.step == steps or                \
-                 self.step == 1):
+                 self.step == steps):
             logger = get_logger()
             logger.info(
                 f"[{self.title}] "
@@ -123,17 +125,11 @@ class Metrics:
     def post_epoch(self):
         self._epoch_end_time = time.time()
         self.epoch_time.update(self._epoch_end_time-self._epoch_start_time)
-        self.epoch += 1
+        self.increment_epoch()
 
         if self.best_top1 < self.top1.avg:
             self.best_epoch = self.epoch
             self.best_top1 = self.top1.avg
-
-        # if self.logger_freq > 0:
-        #     logger = get_logger()
-        #     logger.info(f"[{self.title}] "
-        #                 f"[{self.epoch:3d}/{self.epochs}] "
-        #                 f"Final Prec@1 {self.top1.avg:.4%}")
 
     def is_best(self) -> bool:
         return self.epoch == self.best_epoch

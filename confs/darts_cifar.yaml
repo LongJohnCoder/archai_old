@@ -7,7 +7,7 @@ common:
   device: &device 'cuda'
   checkpoint: &checkpoint
     filename: 'checkpoint.pth'
-    frequency: 10
+    freq: 10
   detect_anomaly: False # if True, PyTorch code will run 6X slower
   # TODO: workers setting
 
@@ -139,6 +139,7 @@ nas:
       validation:
         title: "eval_test"
         logger_freq: 1000
+        freq: 1000 # perform validation only every N epochs
         lossfn:
           type: "CrossEntropyLoss"
 

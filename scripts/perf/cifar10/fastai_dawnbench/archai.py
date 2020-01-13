@@ -10,7 +10,7 @@ from FastAutoAugment.nas import nas_utils
 from dawnnet import DawnNet
 from basic_net import BasicNet
 
-Net = BasicNet
+Net = DawnNet
 
 def train_test(conf_eval:Config):
     logger = get_logger()

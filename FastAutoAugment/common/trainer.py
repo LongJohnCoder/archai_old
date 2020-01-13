@@ -28,6 +28,7 @@ class Trainer(EnforceOverrides):
         self._conf_optim = conf_train['optimizer']
         self._conf_sched = conf_train['lr_schedule']
         conf_validation = conf_train['validation']
+        self._validation_freq = 0 if conf_validation is None else conf_validation['freq']
         # endregion
 
         self.check_point = check_point
@@ -102,12 +103,16 @@ class Trainer(EnforceOverrides):
 
     def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         # first run test before checkpointing
-        if val_dl and self._tester:
-            self._tester.test_epoch(val_dl)
+        if val_dl and self._tester and self._validation_freq > 0:
+            if self._metrics.epoch+1 % self._validation_freq == 0 or \
+                    self._metrics.epoch+1 >= self._epochs:
+                self._tester.test_epoch(val_dl)
+            else:
+                self._tester.increment_epoch()
 
         self._metrics.post_epoch()
         if self.check_point is not None and \
-                self._metrics.epoch % self.check_point.frequency == 0:
+                self._metrics.epoch % self.check_point.freq == 0:
             self.check_point.new()
             self.update_checkpoint(self.check_point)
             self.check_point.commit()
