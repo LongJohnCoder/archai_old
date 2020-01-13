@@ -6,7 +6,7 @@ import shutil
 
 from FastAutoAugment.common.common import common_init, get_config_common
 
-if __name__ == '__main__':
+def main():
     # accept search and eval scripts to run
     # config file can be supplied using --config
     parser = argparse.ArgumentParser(description='NAS E2E Runs')
@@ -46,6 +46,8 @@ if __name__ == '__main__':
         print(f'Script {search_script} returned {result.returncode}')
         if result.returncode != 0:
             exit(result.returncode)
+    else:
+        print(f'Search is skipped because file {final_desc_filepath} already exists')
 
     # get script, resume flag and experiment dir for eval
     eval_script = args.eval_script
@@ -73,7 +75,14 @@ if __name__ == '__main__':
         print(f'Script {eval_script} returned {result.returncode}')
         if result.returncode != 0:
             exit(result.returncode)
-
+    else:
+        print(f'Eval is skipped because file {model_filepath} already exists')
     print('Search and eval done.')
     exit(0)
 
+if __name__ == '__main__':
+    try:
+        main()
+    except (KeyboardInterrupt):
+        print('Interupted by keyboard')
+    exit(0)

@@ -45,10 +45,8 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
 
     # save metrics
     train_metrics, test_metrics = trainer.get_metrics()
-    train_metrics.report_best()
     train_metrics.save('eval_train_metrics')
     if test_metrics:
-        test_metrics.report_best()
         test_metrics.save('eval_test_metrics')
 
     # save model

@@ -35,15 +35,17 @@ def create_model(conf_model_desc: Config, device, run_mode:RunMode,
                                    template_model_desc=template_model_desc)
     return model_from_desc(model_desc, device)
 
-def model_and_checkpoint(conf_checkpoint:Config, resume:bool, full_desc_filename:str,
-                 conf_model_desc: Config, device, run_mode:RunMode,
-                 micro_builder: Optional[MicroBuilder]=None,
-                 template_model_desc:Optional[ModelDesc]=None)->Tuple[Model, CheckPoint]:
+def model_and_checkpoint(conf_checkpoint:Config, resume:bool,
+        full_desc_filename:str, conf_model_desc: Config,
+        device, run_mode:RunMode, micro_builder: Optional[MicroBuilder]=None,
+        template_model_desc:Optional[ModelDesc]=None)\
+                     ->Tuple[Model, Optional[CheckPoint]]:
     logger = get_logger()
-    checkpoint = CheckPoint(conf_checkpoint, resume)
+    checkpoint = CheckPoint(conf_checkpoint, resume) \
+                 if conf_checkpoint is not None else None
     if micro_builder:
         micro_builder.register_ops()
-    if checkpoint.is_empty():
+    if checkpoint is None or checkpoint.is_empty():
         logger.info('Checkpoint not found or resume=False, starting from scratch')
         # create model
         model = create_model(conf_model_desc, device,

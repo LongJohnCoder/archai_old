@@ -22,6 +22,8 @@ nas:
       logger_freq: 1 # after every N updates dump loss and other metrics in logger
   eval:
     data_parallel: False
+    checkpoint:
+      freq: 1
     model_desc:
       n_cells: 3 # number of cells
       n_nodes: 3 # number of nodes in a cell
@@ -30,7 +32,7 @@ nas:
       batch: 32
       dataset: *dataset
     trainer:
-      epochs: 10
+      epochs: 20
       logger_freq: 1 # after every N updates dump loss and other metrics in logger
       validation:
         logger_freq: 1

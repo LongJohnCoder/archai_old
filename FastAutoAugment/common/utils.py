@@ -1,15 +1,15 @@
 
 import  os
-from typing import Iterable, Type, MutableMapping, Mapping
+from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional, Tuple
 import  numpy as np
 import  shutil
 
 import  torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
 from torch.optim import lr_scheduler, SGD, Adam
 from warmup_scheduler import GradualWarmupScheduler
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.optimizer import Optimizer
 from torch.nn.modules.loss import _WeightedLoss, _Loss
 import torch.nn.functional as F
 
@@ -132,7 +132,7 @@ def deep_update(d:MutableMapping, u:Mapping, map_type:Type[MutableMapping]=dict)
             d[k] = v
     return d
 
-def get_optimizer(conf_opt:Config, params)->Optimizer:
+def create_optimizer(conf_opt:Config, params)->Optimizer:
     if conf_opt['type'] == 'sgd':
         return SGD(
            params,
@@ -157,41 +157,67 @@ def get_optim_lr(optimizer:Optimizer)->float:
         return param_group['lr']
     raise RuntimeError('optimizer did not had any param_group named lr!')
 
-def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
-        _LRScheduler:
+def ensure_pytorch_ver(min_ver:str, error_msg:str)->bool:
+    tv = torch.__version__.split('.')
+    req = min_ver.split('.')
+    for i,j in zip(tv, req):
+        i,j = int(i), int(j)
+        if i > j:
+            return True
+        if i < j:
+            if error_msg:
+                raise RuntimeError(f'Minimum required PyTorch version is {min_ver} but installed version is {torch.__version__}: {error_msg}')
+            return False
+    return True
 
-    scheduler:_LRScheduler = None
-    lr_scheduler_type = conf_lrs['type'] # TODO: default should be none?
-    if lr_scheduler_type == 'cosine':
-        # adjust max epochs for warmup
-        # TODO: shouldn't we be increasing epochs or schedule lr only after warmup?
+
+def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
+        steps_per_epoch:Optional[int])-> Tuple[Optional[_LRScheduler], bool]:
+
+    # epoch_or_step - apply every epoch or every step
+    scheduler, epoch_or_step = None, True
+
+    if conf_lrs is not None:
+        lr_scheduler_type = conf_lrs['type'] # TODO: default should be none?
+        if lr_scheduler_type == 'cosine':
+            # adjust max epochs for warmup
+            # TODO: shouldn't we be increasing epochs or schedule lr only after warmup?
+            if conf_lrs.get('warmup', None):
+                epochs -= conf_lrs['warmup']['epoch']
+            scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
+                eta_min=conf_lrs['min_lr'])
+        elif lr_scheduler_type == 'resnet':
+            scheduler = _adjust_learning_rate_resnet(optimizer, epochs)
+        elif lr_scheduler_type == 'pyramid':
+            scheduler = _adjust_learning_rate_pyramid(optimizer, epochs,
+                get_optim_lr(optimizer))
+        elif lr_scheduler_type == 'step':
+            decay_period = conf_lrs['decay_period']
+            gamma = conf_lrs['gamma']
+            scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
+        elif lr_scheduler_type == 'one_cycle':
+            assert steps_per_epoch is not None
+            ensure_pytorch_ver('1.3.0', 'LR scheduler OneCycleLR is not available.')
+            max_lr = conf_lrs['max_lr']
+            epoch_or_step = False
+            scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=max_lr,
+                            epochs=epochs, steps_per_epoch=steps_per_epoch,
+                        )  # TODO: other params
+        elif not lr_scheduler_type:
+                scheduler = None # TODO: check support for this or use StepLR
+        else:
+            raise ValueError('invalid lr_schduler=%s' % lr_scheduler_type)
+
+        # select warmup for LR schedule
         if conf_lrs.get('warmup', None):
-            epochs -= conf_lrs['warmup']['epoch']
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
-            eta_min=conf_lrs['lr_min'])
-    elif lr_scheduler_type == 'resnet':
-        scheduler = _adjust_learning_rate_resnet(optimizer, epochs)
-    elif lr_scheduler_type == 'pyramid':
-        scheduler = _adjust_learning_rate_pyramid(optimizer, epochs,
-            get_optim_lr(optimizer))
-    elif lr_scheduler_type == 'step':
-        decay_period = conf_lrs['decay_period']
-        gamma = conf_lrs['gamma']
-        scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
-    elif not lr_scheduler_type:
-            scheduler = None # TODO: check support for this or use StepLR
-    else:
-        raise ValueError('invalid lr_schduler=%s' % lr_scheduler_type)
+            scheduler = GradualWarmupScheduler(
+                optimizer,
+                multiplier=conf_lrs['warmup']['multiplier'],
+                total_epoch=conf_lrs['warmup']['epoch'],
+                after_scheduler=scheduler
+            )
 
-    # select warmup for LR schedule
-    if conf_lrs.get('warmup', None):
-        scheduler = GradualWarmupScheduler(
-            optimizer,
-            multiplier=conf_lrs['warmup']['multiplier'],
-            total_epoch=conf_lrs['warmup']['epoch'],
-            after_scheduler=scheduler
-        )
-    return scheduler
+    return scheduler, epoch_or_step
 
 def _adjust_learning_rate_pyramid(optimizer, max_epoch:int, base_lr:float):
     def _internal_adjust_learning_rate_pyramid(epoch):
@@ -257,6 +283,52 @@ def get_lossfn(conf_lossfn:Config)->_Loss:
         return SmoothCrossEntropyLoss(smoothing=conf_lossfn['smoothing'])
     else:
         raise ValueError('criterian type "{}" is not supported'.format(type))
+
+def state_dict(val):
+    d = getattr(val, '__dict__', None)
+    if d is None:
+        return val # not an object
+
+    res = {}
+    for k,v in val.__dict__.items():
+        res[k] = state_dict(v)
+    return res
+
+def load_state_dict(val, d:dict)->bool:
+    dd = getattr(val, '__dict__', None)
+    if dd is None:
+        return False
+
+    for k,v in d.items():
+        if isinstance(v, dict):
+            if load_state_dict(getattr(val, k), v):
+               continue
+        setattr(val, k, v)
+    return True
+
+def deep_comp(o1:Any, o2:Any)->bool:
+    # NOTE: dict don't have __dict__
+    o1d = getattr(o1, '__dict__', None)
+    o2d = getattr(o2, '__dict__', None)
+
+    # if both are objects
+    if o1d is not None and o2d is not None:
+        # we will compare their dictionaries
+        o1, o2 = o1.__dict__, o2.__dict__
+
+    if o1 is not None and o2 is not None:
+        # if both are dictionaries, we will compare each key
+        if isinstance(o1, dict) and isinstance(o2, dict):
+            for k in set().union(o1.keys() ,o2.keys()):
+                if k in o1 and k in o2:
+                    if not deep_comp(o1[k], o2[k]):
+                        return False
+                else:
+                    return False # some key missing
+            return True
+    # mismatched object types or both are scalers, or one or both None
+    return o1 == o2
+
 
 # TODO: replace this with SmoothCrossEntropyLoss class
 # def cross_entropy_smooth(input: torch.Tensor, target, size_average=True, label_smoothing=0.1):

@@ -38,9 +38,8 @@ class ArchTrainer(Trainer, EnforceOverrides):
         return loss
 
     @overrides
-    def post_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
-                   optim:Optimizer, sched:_LRScheduler) -> None:
-        super().post_epoch(train_dl, val_dl, optim, sched)
+    def post_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader])->None:
+        super().post_epoch(train_dl, val_dl)
         self._draw_model()
 
     def _draw_model(self) -> None:

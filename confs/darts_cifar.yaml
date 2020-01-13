@@ -7,7 +7,7 @@ common:
   device: &device 'cuda'
   checkpoint: &checkpoint
     filename: 'checkpoint.pth'
-    frequency: 10
+    freq: 10
   detect_anomaly: False # if True, PyTorch code will run 6X slower
   # TODO: workers setting
 
@@ -57,6 +57,7 @@ nas:
       horovod: *horovod
       dataset: *dataset
     trainer:
+      apex: False
       aux_weight: *search_aux_weight
       drop_path_prob: 0.0 # probability that given edge will be dropped
       grad_clip: 5.0 # grads above this value is clipped
@@ -83,10 +84,11 @@ nas:
         betas: [0.5, 0.999]
       lr_schedule:
         type: "cosine"
-        lr_min: 0.001 # min learning rate, this will be used in eta_min param of scheduler
+        min_lr: 0.001 # min learning rate, this will be used in eta_min param of scheduler
       validation:
         title: "search_val"
         logger_freq: 1000
+        freq: 1 # perform validation only every N epochs
         lossfn:
           type: "CrossEntropyLoss"
   eval:
@@ -118,10 +120,11 @@ nas:
       horovod: *horovod
       dataset: *dataset
     trainer:
+      apex: False
       aux_weight: *eval_aux_weight
       drop_path_prob: 0.2 # probability that given edge will be dropped
       grad_clip: 5.0 # grads above this value is clipped
-      logger_freq: 50 # after every N updates dump loss and other metrics in logger
+      logger_freq: 1000 # after every N updates dump loss and other metrics in logger
       title: "eval_train"
       epochs: 600
       lossfn:
@@ -129,16 +132,17 @@ nas:
       optimizer:
         type: "sgd"
         lr: 0.025 # init learning rate
-        decay: 3.0e-4
-        momentum: 0.9 # pytorch default is 0
-        nesterov: False
+        decay: 3.0e-4 # pytorch default is 0.0
+        momentum: 0.9 # pytorch default is 0.0
+        nesterov: False # pytorch default is False
         warmup: null
       lr_schedule:
         type: "cosine"
-        lr_min: 0.001 # min learning rate to se bet in eta_min param of scheduler
+        min_lr: 0.001 # min learning rate to se bet in eta_min param of scheduler
       validation:
         title: "eval_test"
         logger_freq: 1000
+        freq: 1000 # perform validation only every N epochs
         lossfn:
           type: "CrossEntropyLoss"
 
@@ -171,5 +175,5 @@ autoaug:
     #betas: [0.9, 0.999] # PyTorch default betas for Adam
   lr_schedule:
     type: "cosine"
-    lr_min: 0.0 # min learning rate, this will be used in eta_min param of scheduler
+    min_lr: 0.0 # min learning rate, this will be used in eta_min param of scheduler
 

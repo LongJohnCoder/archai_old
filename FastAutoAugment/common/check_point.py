@@ -24,7 +24,7 @@ class CheckPoint(UserDict):
 
         # region config vars
         self._filepath = expdir_abspath(conf_checkpoint['filename'])
-        self.frequency = conf_checkpoint['frequency']
+        self.freq = conf_checkpoint['freq']
         # endregion
 
         self._callbacks = []

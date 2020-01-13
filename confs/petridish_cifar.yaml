@@ -10,7 +10,7 @@ nas:
       l1_alphas:  0.001   # as per paper
       epochs: 80 # as per paper
       lr_schedule:
-        lr_min: 0.0 # as per paper
+        min_lr: 0.0 # as per paper
     loader:
       batch: 32 # as per paper
   eval:

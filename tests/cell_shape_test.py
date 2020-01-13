@@ -2,7 +2,7 @@ import torch
 
 from FastAutoAugment.common.common import common_init
 from FastAutoAugment.darts.darts_micro_builder import DartsMicroBuilder
-from FastAutoAugment.nas.search_arch import create_model
+from FastAutoAugment.nas.nas_utils import create_model
 
 
 def test_cell_shape():

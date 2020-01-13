@@ -40,12 +40,9 @@ def search_arch(conf_search:Config, micro_builder:MicroBuilder,
     arch_trainer = trainer_class(conf_train, model, device, checkpoint)
     arch_trainer.fit(train_dl, val_dl)
 
-    # save metrics
     train_metrics, val_metrics = arch_trainer.get_metrics()
-    train_metrics.report_best()
     train_metrics.save('search_train_metrics')
     if val_metrics:
-       val_metrics.report_best()
        val_metrics.save('search_val_metrics')
 
     # save found model
