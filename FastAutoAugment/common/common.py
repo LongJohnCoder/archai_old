@@ -183,10 +183,10 @@ def _setup_gpus(conf_common):
     logger.info('Original CUDA_VISIBLE_DEVICES: {}'.format(
         os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ else 'NotSet'))
 
-    gpu_usage = os.popen(
-        'nvidia-smi --query-gpu=memory.total,memory.used --format=csv,nounits,noheader'
-    ).read().split('\n')
-    for i, line in enumerate(gpu_usage):
-        vals = line.split(',')
-        if len(vals) == 2:
-            logger.info('GPU {} mem: {}, used: {}'.format(i, vals[0], vals[1]))
+    # gpu_usage = os.popen(
+    #     'nvidia-smi --query-gpu=memory.total,memory.used --format=csv,nounits,noheader'
+    # ).read().split('\n')
+    # for i, line in enumerate(gpu_usage):
+    #     vals = line.split(',')
+    #     if len(vals) == 2:
+    #         logger.info('GPU {} mem: {}, used: {}'.format(i, vals[0], vals[1]))
