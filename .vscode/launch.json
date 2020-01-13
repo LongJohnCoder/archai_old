@@ -98,7 +98,14 @@
                 "--config-defaults", "confs/random_cifar.yaml"
             ]
         },
-
+        {
+            "name": "E2ERandom cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/random/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/random_cifar.yaml", "--config-defaults", "confs/random_cifar.yaml"]
+        },
         {
             "name": "SearchRandom cifar10",
             "type": "python",
