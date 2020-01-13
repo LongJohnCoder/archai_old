@@ -10,7 +10,7 @@ class Amp:
     def __init__(self, use_amp:bool)->None:
         logger = get_logger()
 
-        self._use_amp = None
+        self._use_amp = use_amp
         self._amp = None
 
         if self._use_amp:
