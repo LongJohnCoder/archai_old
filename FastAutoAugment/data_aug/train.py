@@ -105,6 +105,10 @@ def run_epoch(conf, logger, model:nn.Module, loader, loss_fn, optimizer,
             writer.add_scalar('{}/{}'.format(key, split_type), value, epoch)
     return metrics
 
+# NOTE that 'eval' is overloaded in this code base. 'eval' here means 
+# taking a trained model and running it on val or test sets. In NAS 'eval'
+# often means taking a found model and training it fully (often termed 'final training').
+
 # metric could be 'last', 'test', 'val', 'train'.
 def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
         reporter=None, metric='test'):
@@ -178,7 +182,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
         logger.info('%s checkpoint found. loading...' % save_path)
         data = torch.load(save_path)
 
-        # wehn checkpointing we do add 'model' key so other cases are special cases
+        # when checkpointing we do add 'model' key so other cases are special cases
         if 'model' in data or 'state_dict' in data:
             key = 'model' if 'model' in data else 'state_dict'
             logger.info('checkpoint epoch@%d' % data['epoch'])

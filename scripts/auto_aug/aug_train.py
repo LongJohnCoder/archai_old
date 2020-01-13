@@ -5,7 +5,7 @@ from FastAutoAugment.data_aug.train import train_and_eval
 
 
 if __name__ == '__main__':
-    conf = common_init(config_filepath='confs/darts_cifar.yaml',
+    conf = common_init(config_filepath='confs/aug_train_cifar.yaml',
                        param_args=["--autoaug.loader.aug", "fa_reduced_cifar10",
                                    "--common.experiment_name", "autoaug_train"])
     logger = get_logger()
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     save_path = expdir_abspath('model.pth')
     # result = train_and_eval(conf, val_ratio=conf['val_ratio'], val_fold=conf['val_fold'],
     #                         save_path=save_path, only_eval=conf['only_eval'], metric='test')
-    result = train_and_eval(conf, val_ratio=0.2, val_fold=1,
+    result = train_and_eval(conf, val_ratio=0, val_fold=0,
                             save_path=save_path, only_eval=True, metric='test')
     elapsed = time.time() - t
 
