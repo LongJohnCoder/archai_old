@@ -14,6 +14,7 @@ from torch.nn.modules.loss import _WeightedLoss, _Loss
 import torch.nn.functional as F
 
 from .config import Config
+from .cocob import CocobBackprop
 
 class AverageMeter:
 
@@ -145,6 +146,9 @@ def get_optimizer(conf_opt:Config, params)->Optimizer:
             lr=conf_opt['lr'],
             betas=conf_opt['betas'],
             weight_decay=conf_opt['decay'])
+    elif conf_opt['type'] == 'cocob':
+        return CocobBackprop(params, 
+            alpha=conf_opt['alpha'])
     else:
         raise ValueError('invalid optimizer type=%s' % conf_opt['type'])
 
