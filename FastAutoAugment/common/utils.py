@@ -1,6 +1,6 @@
 
 import  os
-from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional
+from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional, Tuple
 import  numpy as np
 import  shutil
 
@@ -153,10 +153,11 @@ def get_optim_lr(optimizer:Optimizer)->float:
         return param_group['lr']
     raise RuntimeError('optimizer did not had any param_group named lr!')
 
-def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
-        Optional[_LRScheduler]:
+def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
+        steps_per_epoch:Optional[int])-> Tuple[Optional[_LRScheduler], bool]:
 
-    scheduler = None
+    # epoch_or_step - apply every epoch or every step
+    scheduler, epoch_or_step = None, True
 
     if conf_lrs is not None:
         lr_scheduler_type = conf_lrs['type'] # TODO: default should be none?
@@ -166,7 +167,7 @@ def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
             if conf_lrs.get('warmup', None):
                 epochs -= conf_lrs['warmup']['epoch']
             scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
-                eta_min=conf_lrs['lr_min'])
+                eta_min=conf_lrs['min_lr'])
         elif lr_scheduler_type == 'resnet':
             scheduler = _adjust_learning_rate_resnet(optimizer, epochs)
         elif lr_scheduler_type == 'pyramid':
@@ -176,6 +177,13 @@ def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
             decay_period = conf_lrs['decay_period']
             gamma = conf_lrs['gamma']
             scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
+        elif lr_scheduler_type == 'one_cycle':
+            max_lr = conf_lrs['max_lr']
+            epoch_or_step = False
+            assert steps_per_epoch is not None
+            scheduler = lr_scheduler.OneCycleLR(optimizer, max_lr=max_lr,
+                            epochs=epochs, steps_per_epoch=steps_per_epoch,
+                        )  # TODO: other params
         elif not lr_scheduler_type:
                 scheduler = None # TODO: check support for this or use StepLR
         else:
@@ -190,7 +198,7 @@ def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
                 after_scheduler=scheduler
             )
 
-    return scheduler
+    return scheduler, epoch_or_step
 
 def _adjust_learning_rate_pyramid(optimizer, max_epoch:int, base_lr:float):
     def _internal_adjust_learning_rate_pyramid(epoch):

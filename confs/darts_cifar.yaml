@@ -84,7 +84,7 @@ nas:
         betas: [0.5, 0.999]
       lr_schedule:
         type: "cosine"
-        lr_min: 0.001 # min learning rate, this will be used in eta_min param of scheduler
+        min_lr: 0.001 # min learning rate, this will be used in eta_min param of scheduler
       validation:
         title: "search_val"
         logger_freq: 1000
@@ -137,7 +137,7 @@ nas:
         warmup: null
       lr_schedule:
         type: "cosine"
-        lr_min: 0.001 # min learning rate to se bet in eta_min param of scheduler
+        min_lr: 0.001 # min learning rate to se bet in eta_min param of scheduler
       validation:
         title: "eval_test"
         logger_freq: 1000
@@ -174,5 +174,5 @@ autoaug:
     #betas: [0.9, 0.999] # PyTorch default betas for Adam
   lr_schedule:
     type: "cosine"
-    lr_min: 0.0 # min learning rate, this will be used in eta_min param of scheduler
+    min_lr: 0.0 # min learning rate, this will be used in eta_min param of scheduler
 

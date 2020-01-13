@@ -52,10 +52,11 @@ class Trainer(EnforceOverrides):
         # optimizers, schedulers needs to be recreated for each fit call
         # as they have state
         optim = self.create_optimizer()
+        # apply scheduler before amp
+        self._sched, self._sched_on_epoch = self._create_scheduler(optim, len(train_dl))
         # before checkpoint restore, convert to amp
         # TODO: original model is lost after to_amp?
         self.model, self._optim = self._amp.to_amp(self.model, optim)
-        self._sched = self.create_scheduler(self._optim)
 
         start_epoch = 0
         if self.check_point is not None and 'trainer' in self.check_point:
@@ -85,8 +86,10 @@ class Trainer(EnforceOverrides):
     def create_optimizer(self)->Optimizer:
         return utils.create_optimizer(self._conf_optim, self.model.parameters())
 
-    def create_scheduler(self, optim:Optimizer)->Optional[_LRScheduler]:
-        return utils.get_lr_scheduler(self._conf_sched, self._epochs, optim)
+    def _create_scheduler(self, optim:Optimizer, steps_per_epoch:int) \
+            ->Tuple[Optional[_LRScheduler],bool]:
+        return utils.create_lr_scheduler(self._conf_sched, self._epochs,
+            optim, steps_per_epoch)
 
     def get_optimizer(self)->Optimizer:
         return self._optim
@@ -178,6 +181,10 @@ class Trainer(EnforceOverrides):
     def _train_epoch(self, train_dl: DataLoader)->None:
         steps = len(train_dl)
         self.model.train()
+        # TODO: advantage of doing at the start is that if schedule starts from 0
+        #       first epoch is not a waste. But then again, we lose first LR.
+        if self._sched and self._sched_on_epoch:
+            self._sched.step()
         for x, y in train_dl:
             assert self.model.training # derived class might alter the mode
 
@@ -201,7 +208,7 @@ class Trainer(EnforceOverrides):
             self._amp.clip_grad(self._grad_clip, self.model, self._optim)
 
             self._optim.step()
-            if self._sched:
+            if self._sched and not self._sched_on_epoch:
                 self._sched.step()
 
             self.post_step(x, y, logits, loss, steps)

@@ -13,7 +13,7 @@ from ..common.common import get_logger, get_tb_writer
 from ..common.data import get_dataloaders
 from ..common.metrics import Accumulator
 from ..networks import get_model, num_class
-from ..common.utils import accuracy, get_lr_scheduler, create_optimizer
+from ..common.utils import accuracy, create_lr_scheduler, create_optimizer
 
 
 # TODO: remove scheduler parameter?
@@ -169,7 +169,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
     logger.debug('is_master=%s' % is_master)
 
     # select LR schedule
-    scheduler = get_lr_scheduler(conf_lr_sched, epochs, optimizer)
+    scheduler = create_lr_scheduler(conf_lr_sched, epochs, optimizer, len(train_dl))
 
     result = OrderedDict()
     epoch_start = 1

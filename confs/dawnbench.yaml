@@ -6,7 +6,7 @@ nas:
     resume: False
     trainer:
       apex: True
-      epochs: 35
+      epochs: 10
       drop_path_prob: 0.0
       aux_weight: 0.0
       optimizer:
@@ -16,7 +16,12 @@ nas:
         momentum: 0.9 # pytorch default is 0
         nesterov: False
         warmup: null
-      lr_schedule: null
+      lr_schedule:
+        type: 'one_cycle'
+        max_lr: 1.0
+        decay: 0.064
+        momentum: 0.9
     loader:
       cutout: 0
-      batch: 64
+      batch: 128
+      n_workers: 1
