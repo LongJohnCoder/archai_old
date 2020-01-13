@@ -139,12 +139,12 @@
         },
 
         {
-            "name": "TrainAug wresnet40x2 cifar10",
+            "name": "TrainAug cifar10",
             "type": "python",
             "request": "launch",
             "program": "${cwd}/scripts/auto_aug/aug_train.py",
             "console": "integratedTerminal",
-            "args": ["--config", "confs/wresnet40x2_cifar10_b512.yaml",
+            "args": ["--config", "confs/darts_cifar.yaml",
                     "--aug", "fa_reduced_cifar10"
             ]
         },

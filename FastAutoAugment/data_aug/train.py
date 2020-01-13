@@ -244,7 +244,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
             optimizer, split_type='train', epoch=epoch, verbose=is_master,
             scheduler=scheduler)
         if scheduler:
-            scheduler.step()
+            scheduler[0].step()
 
         model.eval()
 
