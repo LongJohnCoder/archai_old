@@ -113,9 +113,9 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
 
     # region conf vars
     conf_data         = conf['dataset']
-    dataroot        = conf['dataroot']
-    horovod         = conf['horovod']
-    checkpoint_freq = conf['checkpoint']['freq']
+    dataroot        = conf_data['dataroot']
+    horovod         = conf['common']['horovod']
+    checkpoint_freq = conf['common']['checkpoint']['freq']
     conf_loader     = conf['autoaug']['loader']
     conf_model      = conf['autoaug']['model']
     ds_name         = conf_data['name']

@@ -136,7 +136,6 @@
             "request": "launch",
             "program": "${cwd}/scripts/perf/cifar10/fastai_dawnbench/archai.py",
             "console": "integratedTerminal"
-            ]
         },
 
         {

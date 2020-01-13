@@ -165,9 +165,11 @@ autoaug:
     dataset: *dataset
   optimizer:
     type: "sgd"
-    decay: 0
-    momentum: 0.9 # pytorch default is 0
-    nesterov: False
+    lr: 0.025 # init learning rate
+    decay: 3.0e-4 # pytorch default is 0.0
+    momentum: 0.9 # pytorch default is 0.0
+    nesterov: False # pytorch default is False
+    clip: 5.0 # grads above this value is clipped # TODO: Why is this also in trainer?
     warmup:
       null
       # multiplier: 2
@@ -176,4 +178,6 @@ autoaug:
   lr_schedule:
     type: "cosine"
     min_lr: 0.0 # min learning rate, this will be used in eta_min param of scheduler
+  model:
+    type: 'wresnet40_2'
 
