@@ -34,8 +34,8 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
         n_workers = 0
         logger.warn('Debugger is detected, lower performance settings may be used.')
     else: # use simple heuristic to auto select number of workers
-        n_workers = int(torch.cuda.device_count()*4 if n_workers is None \
-            else n_workers)
+        # TODO: for multi-gpu, use 4 * gpus used
+        n_workers = 4 if n_workers is None else n_workers
     logger.info('n_workers = {}'.format(n_workers))
 
     # get usual random crop/flip transforms

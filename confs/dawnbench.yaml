@@ -18,10 +18,9 @@ nas:
         warmup: null
       lr_schedule:
         type: 'one_cycle'
-        max_lr: 1.0
+        max_lr: 0.5
         decay: 0.064
         momentum: 0.9
     loader:
       cutout: 0
-      batch: 128
-      n_workers: 1
+      batch: 512
