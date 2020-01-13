@@ -79,7 +79,8 @@ def run_epoch(conf, logger, model:nn.Module, loader, loss_fn, optimizer,
         if verbose:
             postfix = metrics / cnt
             if optimizer:
-                postfix['lr'] = optimizer.param_groups[0]['lr']
+                if 'lr' in optimizer.param_groups[0]:
+                    postfix['lr'] = optimizer.param_groups[0]['lr']
             loader.set_postfix(postfix)
 
         # below changes LR for every batch in epoch

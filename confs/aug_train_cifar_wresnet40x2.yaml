@@ -1,5 +1,12 @@
 
 
 autoaug:
+    optimizer:
+        type: "cocob"
+        alpha: 100
+    lr_schedule:
+        type: null
+        min_lr: null
     model:
         type: 'resnet50'
+
