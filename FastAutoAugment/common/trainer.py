@@ -17,6 +17,8 @@ from ..common.check_point import CheckPoint
 class Trainer(EnforceOverrides):
     def __init__(self, conf_train:Config, model:nn.Module, device,
                  check_point:Optional[CheckPoint])->None:
+        logger = get_logger()
+
         # region config vars
         conf_lossfn = conf_train['lossfn']
         self._aux_weight = conf_train['aux_weight']
@@ -39,6 +41,7 @@ class Trainer(EnforceOverrides):
                         if conf_validation else None
         self._metrics = self._create_metrics(self._epochs)
         self._metrics.custom['param_byte_size'] = utils.param_size(self.model)
+        logger.info("Model param size = %f MB", self._metrics.custom['param_byte_size']/1e6)
 
     def fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         logger = get_logger()

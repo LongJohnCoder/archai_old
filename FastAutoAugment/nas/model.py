@@ -42,7 +42,6 @@ class Model(nn.Module):
         self.linear = nn.Linear(model_desc.cell_descs[-1].cell_ch_out,
                                 model_desc.n_classes)
 
-        logger.info("Model param size = %f MB", utils.param_size(self)/1e6)
         logger.info(f"Alphas count = {len(set(a for a in self.alphas()))}")
 
     def alphas(self)->Iterable[nn.Parameter]:
