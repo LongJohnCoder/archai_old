@@ -5,6 +5,7 @@ nas:
     checkpoint: null
     resume: False
     trainer:
+      apex: True
       epochs: 35
       drop_path_prob: 0.0
       aux_weight: 0.0

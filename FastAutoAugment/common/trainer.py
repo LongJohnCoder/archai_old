@@ -13,6 +13,7 @@ from .config import Config
 from . import utils
 from ..common.common import get_logger
 from ..common.check_point import CheckPoint
+from .apex_utils import Amp
 
 class Trainer(EnforceOverrides):
     def __init__(self, conf_train:Config, model:nn.Module, device,
@@ -21,6 +22,7 @@ class Trainer(EnforceOverrides):
 
         # region config vars
         conf_lossfn = conf_train['lossfn']
+        self._apex = conf_train['apex']
         self._aux_weight = conf_train['aux_weight']
         self._grad_clip = conf_train['grad_clip']
         self._drop_path_prob = conf_train['drop_path_prob']
@@ -43,11 +45,16 @@ class Trainer(EnforceOverrides):
         self._metrics.custom['param_byte_size'] = utils.param_size(self.model)
         logger.info("Model param size = %f MB", self._metrics.custom['param_byte_size']/1e6)
 
+        self._amp = Amp(self._apex)
+
     def fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         logger = get_logger()
         # optimizers, schedulers needs to be recreated for each fit call
         # as they have state
-        self._optim = self.create_optimizer()
+        optim = self.create_optimizer()
+        # before checkpoint restore, convert to amp
+        # TODO: original model is lost after to_amp?
+        self.model, self._optim = self._amp.to_amp(self.model, optim)
         self._sched = self.create_scheduler(self._optim)
 
         start_epoch = 0
@@ -136,6 +143,7 @@ class Trainer(EnforceOverrides):
         start_epoch = last_epoch + 1
 
         state = self.check_point['trainer']
+        self._amp.load_state_dict(state['amp'])
         self.model.load_state_dict(state['model'])
         self._optim.load_state_dict(state['optim'])
         if self._sched:
@@ -154,6 +162,7 @@ class Trainer(EnforceOverrides):
             'model': self.model.state_dict(),
             'optim': self._optim.state_dict(),
             'sched': self._sched.state_dict() if self._sched else None,
+            'amp': self._amp.state_dict(),
             'tester': self._tester.state_dict() if self._tester is not None else None
         }
         self.check_point['trainer'] = state
@@ -186,11 +195,10 @@ class Trainer(EnforceOverrides):
             loss = self.compute_loss(self._lossfn, x, y, logits,
                                     self._aux_weight, aux_logits)
 
-            loss.backward()
+            self._amp.backward(loss, self._optim)
 
-            if self._grad_clip:
-                # TODO: original darts clips alphas as well but pt.darts doesn't
-                nn.utils.clip_grad_norm_(self.model.parameters(), self._grad_clip)
+            # TODO: original darts clips alphas as well but pt.darts doesn't
+            self._amp.clip_grad(self._grad_clip, self.model, self._optim)
 
             self._optim.step()
             if self._sched:

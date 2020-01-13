@@ -6,10 +6,10 @@ import  shutil
 
 import  torch
 from torch import nn
-from torch.optim.optimizer import Optimizer
 from torch.optim import lr_scheduler, SGD, Adam
 from warmup_scheduler import GradualWarmupScheduler
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.optimizer import Optimizer
 from torch.nn.modules.loss import _WeightedLoss, _Loss
 import torch.nn.functional as F
 
