@@ -46,6 +46,8 @@ def main():
         print(f'Script {search_script} returned {result.returncode}')
         if result.returncode != 0:
             exit(result.returncode)
+    else:
+        print(f'Search is skipped because file {final_desc_filepath} already exists')
 
     # get script, resume flag and experiment dir for eval
     eval_script = args.eval_script
@@ -73,13 +75,14 @@ def main():
         print(f'Script {eval_script} returned {result.returncode}')
         if result.returncode != 0:
             exit(result.returncode)
-
+    else:
+        print(f'Eval is skipped because file {model_filepath} already exists')
     print('Search and eval done.')
     exit(0)
 
 if __name__ == '__main__':
     try:
         main()
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt):
         print('Interupted by keyboard')
-        exit(0)
+    exit(0)

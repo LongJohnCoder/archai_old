@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import logging
-import basic_net
+from basic_net import BasicNet
 
 logging.basicConfig(format='%(asctime)s - %(message)s', datefmt='%d-%b-%y %H:%M:%S', level=logging.DEBUG)
 logger = logging.getLogger()
@@ -34,11 +34,11 @@ classes = ('plane', 'car', 'bird', 'cat',
 
 
 device = torch.device('cuda')
-net = basic_net.Net().to(device)
+net = BasicNet().to(device)
 criterion = nn.CrossEntropyLoss().to(device)
 optimizer = optim.SGD(net.parameters(), lr=0.016, momentum=0.9)
 
-for epoch in range(20):  # loop over the dataset multiple times
+for epoch in range(1):  # loop over the dataset multiple times
     running_loss = 0.0
     for i, (inputs, labels) in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
@@ -48,7 +48,7 @@ for epoch in range(20):  # loop over the dataset multiple times
         optimizer.zero_grad()
 
         # forward + backward + optimize
-        outputs = net(inputs)
+        outputs, *_ = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -68,7 +68,7 @@ total = 0
 with torch.no_grad():
     for (images, labels) in testloader:
         images, labels = images.to(device), labels.to(device)
-        outputs = net(images)
+        outputs, *_ = net(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()

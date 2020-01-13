@@ -28,13 +28,14 @@ class BilevelArchTrainer(ArchTrainer):
         self._conf_alpha_optim = conf_train['alpha_optimizer']
 
     @overrides
-    def get_optimizer(self) -> Optimizer:
+    def create_optimizer(self) -> Optimizer:
         # return optim that only operates on w, not alphas
-        return utils.get_optimizer(self._conf_w_optim, self.model.weights())
+        return utils.create_optimizer(self._conf_w_optim, self.model.weights())
 
     @overrides
     def pre_fit(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
-                optim: Optimizer, sched: _LRScheduler, resuming:bool) -> None:
+                resuming:bool) -> None:
+        super().pre_fit(train_dl, val_dl, resuming)
 
         # optimizers, schedulers needs to be recreated for each fit call
         # as they have state
@@ -49,29 +50,26 @@ class BilevelArchTrainer(ArchTrainer):
             self._bilevel_optim.load_state_dict(self.check_point['bilelvel_optim'])
 
     @overrides
-    def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
-                 optim:Optimizer, sched:_LRScheduler)->None:
+    def post_fit(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         # delete state we created in pre_fit
         del self._bilevel_optim
-        return super().post_fit(train_dl, val_dl, optim, sched)
+        return super().post_fit(train_dl, val_dl)
 
     @overrides
-    def pre_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader],
-                  optim:Optimizer, sched:_LRScheduler) -> None:
-        super().pre_epoch(train_dl, val_dl, optim, sched)
+    def pre_epoch(self, train_dl: DataLoader, val_dl: Optional[DataLoader])->None:
+        super().pre_epoch(train_dl, val_dl)
 
         # prep val set to train alphas
         self._valid_iter = iter(val_dl)  # type: ignore
 
     @overrides
-    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader],
-                   optim:Optimizer, sched:_LRScheduler)->None:
+    def post_epoch(self, train_dl:DataLoader, val_dl:Optional[DataLoader])->None:
         del self._valid_iter # clean up
-        super().post_epoch(train_dl, val_dl, optim, sched)
+        super().post_epoch(train_dl, val_dl)
 
     @overrides
-    def pre_step(self, x: Tensor, y: Tensor, optim: Optimizer) -> None:
-        super().pre_step(x, y, optim)
+    def pre_step(self, x: Tensor, y: Tensor) -> None:
+        super().pre_step(x, y)
 
         # reset val loader if we exausted it
         try:
@@ -85,12 +83,11 @@ class BilevelArchTrainer(ArchTrainer):
             self.device, non_blocking=True)
 
         # update alphas
-        self._bilevel_optim.step(x, y, x_val, y_val, optim)
+        self._bilevel_optim.step(x, y, x_val, y_val, super().get_optimizer())
 
     @overrides
-    def update_checkpoint(self, check_point:CheckPoint,
-                          optim:Optimizer, sched:_LRScheduler)->None:
-        super().update_checkpoint(check_point, optim, sched)
+    def update_checkpoint(self, check_point:CheckPoint)->None:
+        super().update_checkpoint(check_point)
         check_point['bilelvel_optim'] = self._bilevel_optim.state_dict()
 
 class _BilevelOptimizer:
@@ -108,7 +105,7 @@ class _BilevelOptimizer:
         self._vmodel = copy.deepcopy(model)
 
         # this is the optimizer to optimize alphas parameter
-        self._alpha_optim = utils.get_optimizer(conf_alpaha_optim, model.alphas())
+        self._alpha_optim = utils.create_optimizer(conf_alpaha_optim, model.alphas())
 
     def state_dict(self)->dict:
         return {

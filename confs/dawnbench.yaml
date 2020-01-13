@@ -1,0 +1,21 @@
+__include__: 'darts_cifar.yaml' # defaults are loaded from this file
+
+nas:
+  eval:
+    checkpoint: null
+    resume: False
+    trainer:
+      epochs: 1
+      drop_path_prob: 0.0
+      aux_weight: 0.0
+      optimizer:
+        type: "sgd"
+        lr: 0.016 # init learning rate
+        decay: 0.0
+        momentum: 0.9 # pytorch default is 0
+        nesterov: False
+        warmup: null
+      lr_schedule: null
+    loader:
+      cutout: 0
+      batch: 64

@@ -121,7 +121,7 @@ nas:
       aux_weight: *eval_aux_weight
       drop_path_prob: 0.2 # probability that given edge will be dropped
       grad_clip: 5.0 # grads above this value is clipped
-      logger_freq: 50 # after every N updates dump loss and other metrics in logger
+      logger_freq: 1000 # after every N updates dump loss and other metrics in logger
       title: "eval_train"
       epochs: 600
       lossfn:
@@ -129,9 +129,9 @@ nas:
       optimizer:
         type: "sgd"
         lr: 0.025 # init learning rate
-        decay: 3.0e-4
-        momentum: 0.9 # pytorch default is 0
-        nesterov: False
+        decay: 3.0e-4 # pytorch default is 0.0
+        momentum: 0.9 # pytorch default is 0.0
+        nesterov: False # pytorch default is False
         warmup: null
       lr_schedule:
         type: "cosine"

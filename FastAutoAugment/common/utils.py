@@ -1,6 +1,6 @@
 
 import  os
-from typing import Iterable, Type, MutableMapping, Mapping, Any
+from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional
 import  numpy as np
 import  shutil
 
@@ -131,7 +131,7 @@ def deep_update(d:MutableMapping, u:Mapping, map_type:Type[MutableMapping]=dict)
             d[k] = v
     return d
 
-def get_optimizer(conf_opt:Config, params)->Optimizer:
+def create_optimizer(conf_opt:Config, params)->Optimizer:
     if conf_opt['type'] == 'sgd':
         return SGD(
            params,
@@ -154,39 +154,42 @@ def get_optim_lr(optimizer:Optimizer)->float:
     raise RuntimeError('optimizer did not had any param_group named lr!')
 
 def get_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer)-> \
-        _LRScheduler:
+        Optional[_LRScheduler]:
 
-    scheduler:_LRScheduler = None
-    lr_scheduler_type = conf_lrs['type'] # TODO: default should be none?
-    if lr_scheduler_type == 'cosine':
-        # adjust max epochs for warmup
-        # TODO: shouldn't we be increasing epochs or schedule lr only after warmup?
+    scheduler = None
+
+    if conf_lrs is not None:
+        lr_scheduler_type = conf_lrs['type'] # TODO: default should be none?
+        if lr_scheduler_type == 'cosine':
+            # adjust max epochs for warmup
+            # TODO: shouldn't we be increasing epochs or schedule lr only after warmup?
+            if conf_lrs.get('warmup', None):
+                epochs -= conf_lrs['warmup']['epoch']
+            scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
+                eta_min=conf_lrs['lr_min'])
+        elif lr_scheduler_type == 'resnet':
+            scheduler = _adjust_learning_rate_resnet(optimizer, epochs)
+        elif lr_scheduler_type == 'pyramid':
+            scheduler = _adjust_learning_rate_pyramid(optimizer, epochs,
+                get_optim_lr(optimizer))
+        elif lr_scheduler_type == 'step':
+            decay_period = conf_lrs['decay_period']
+            gamma = conf_lrs['gamma']
+            scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
+        elif not lr_scheduler_type:
+                scheduler = None # TODO: check support for this or use StepLR
+        else:
+            raise ValueError('invalid lr_schduler=%s' % lr_scheduler_type)
+
+        # select warmup for LR schedule
         if conf_lrs.get('warmup', None):
-            epochs -= conf_lrs['warmup']['epoch']
-        scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
-            eta_min=conf_lrs['lr_min'])
-    elif lr_scheduler_type == 'resnet':
-        scheduler = _adjust_learning_rate_resnet(optimizer, epochs)
-    elif lr_scheduler_type == 'pyramid':
-        scheduler = _adjust_learning_rate_pyramid(optimizer, epochs,
-            get_optim_lr(optimizer))
-    elif lr_scheduler_type == 'step':
-        decay_period = conf_lrs['decay_period']
-        gamma = conf_lrs['gamma']
-        scheduler = lr_scheduler.StepLR(optimizer, decay_period, gamma=gamma)
-    elif not lr_scheduler_type:
-            scheduler = None # TODO: check support for this or use StepLR
-    else:
-        raise ValueError('invalid lr_schduler=%s' % lr_scheduler_type)
+            scheduler = GradualWarmupScheduler(
+                optimizer,
+                multiplier=conf_lrs['warmup']['multiplier'],
+                total_epoch=conf_lrs['warmup']['epoch'],
+                after_scheduler=scheduler
+            )
 
-    # select warmup for LR schedule
-    if conf_lrs.get('warmup', None):
-        scheduler = GradualWarmupScheduler(
-            optimizer,
-            multiplier=conf_lrs['warmup']['multiplier'],
-            total_epoch=conf_lrs['warmup']['epoch'],
-            after_scheduler=scheduler
-        )
     return scheduler
 
 def _adjust_learning_rate_pyramid(optimizer, max_epoch:int, base_lr:float):

@@ -1,3 +1,4 @@
+import time
 import copy
 from typing import Optional
 import pathlib
@@ -20,6 +21,9 @@ class Metrics:
         self.top1 = utils.AverageMeter()
         self.top5 = utils.AverageMeter()
         self.loss = utils.AverageMeter()
+        self.step_time = utils.AverageMeter()
+        self.epoch_time = utils.AverageMeter()
+        self.run_time = utils.AverageMeter()
         self.custom = {} # user maintained metrics that would be saved/restored
 
         self.reset()
@@ -31,6 +35,8 @@ class Metrics:
         if epochs is not None:
             self.epochs = epochs
 
+        self.step_time.reset()
+        self.epoch_time.reset()
         self._reset_epoch()
 
     def _reset_epoch(self)->None:
@@ -42,14 +48,23 @@ class Metrics:
     def pre_run(self, resuming:bool)->None:
         if not resuming:
             self.reset()
+            self._start_time = time.time()
+        assert hasattr(self, '_start_time')
     def post_run(self)->None:
-        pass
+        self._end_time = time.time()
+        self.run_time.update(self._end_time-self._start_time)
 
+        if self.logger_freq > 0:
+            self.report_times()
+            self.report_best()
     def pre_step(self, x: Tensor, y: Tensor):
-        pass
+        self._step_start_time = time.time()
 
     def post_step(self, x: Tensor, y: Tensor, logits: Tensor,
                   loss: Tensor, steps: int) -> None:
+        self._step_end_time = time.time()
+        self.step_time.update(self._step_end_time-self._step_start_time)
+
         # update metrics after optimizer step
         batch_size = x.size(0)
         prec1, prec5 = utils.accuracy(logits, y, topk=(1, 5))
@@ -61,9 +76,17 @@ class Metrics:
 
         self.report_cur(steps)
 
+    def report_times(self)->None:
+        logger = get_logger()
+        logger.info(f'[{self.title}]  Times: {self.epoch_time.avg:.1f} s/epoch, '
+                    f'{self.step_time.avg:.1f} s/step '
+                    f'{self.run_time.avg:.1f} s/run')
+
     def report_cur(self, steps: int):
         if self.logger_freq > 0 and \
-                (self.step % self.logger_freq == 0 or self.step == steps):
+                (self.step % self.logger_freq == 0 or \
+                 self.step == steps or                \
+                 self.step == 1):
             logger = get_logger()
             logger.info(
                 f"[{self.title}] "
@@ -90,6 +113,7 @@ class Metrics:
 
     def pre_epoch(self, lr:Optional[float]=None)->None:
         self._reset_epoch()
+        self._epoch_start_time = time.time()
         if lr is not None:
             logger, writer = get_logger(), get_tb_writer()
             if self.logger_freq > 0:
@@ -97,6 +121,8 @@ class Metrics:
             writer.add_scalar(f'{self.title}/lr', lr, self.global_step)
 
     def post_epoch(self):
+        self._epoch_end_time = time.time()
+        self.epoch_time.update(self._epoch_end_time-self._epoch_start_time)
         self.epoch += 1
 
         if self.best_top1 < self.top1.avg:

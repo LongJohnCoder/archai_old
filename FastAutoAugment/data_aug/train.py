@@ -13,7 +13,7 @@ from ..common.common import get_logger, get_tb_writer
 from ..common.data import get_dataloaders
 from ..common.metrics import Accumulator
 from ..networks import get_model, num_class
-from ..common.utils import accuracy, get_lr_scheduler, get_optimizer
+from ..common.utils import accuracy, get_lr_scheduler, create_optimizer
 
 
 # TODO: remove scheduler parameter?
@@ -153,7 +153,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
 
     # select loss function and optimizer
     lossfn = nn.CrossEntropyLoss()
-    optimizer = get_optimizer(conf_opt, model.parameters())
+    optimizer = create_optimizer(conf_opt, model.parameters())
 
     # distributed optimizer if horovod is used
     is_master = True
