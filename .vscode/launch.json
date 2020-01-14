@@ -139,12 +139,22 @@
         },
 
         {
-            "name": "TrainAug cifar10",
+            "name": "TrainAug resnet50 cocob cifar10",
             "type": "python",
             "request": "launch",
             "program": "${cwd}/scripts/auto_aug/aug_train.py",
             "console": "integratedTerminal",
-            "args": ["--config", "confs/aug_train_cifar_cocob_wresnet40x2.yaml", "--config-defaults", "confs/aug_train_cifar.yaml",
+            "args": ["--config", "confs/aug_cifar_cocob_resnet50.yaml", "--config-defaults", "confs/aug_cifar.yaml",
+                    "--aug", "fa_reduced_cifar10"
+            ]
+        },
+        {
+            "name": "TrainAug resnet50 sgd cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/auto_aug/aug_train.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/aug_cifar_sgd_resnet50.yaml", "--config-defaults", "confs/aug_cifar.yaml",
                     "--aug", "fa_reduced_cifar10"
             ]
         },
