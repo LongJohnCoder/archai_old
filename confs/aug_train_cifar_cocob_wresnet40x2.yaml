@@ -1,6 +1,14 @@
+common:
+    checkpoint:
+        freq: 3
 
+dataset: 
+    max_batches: 42
 
 autoaug:
+    loader:
+        epochs: 6
+
     optimizer:
         type: "cocob"
         alpha: 100
