@@ -25,6 +25,23 @@
             "program": "${cwd}/tests/scripts/imagenet_test.py",
             "console": "integratedTerminal"
         },
+        {
+            "name": "E2EDarts cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/darts/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/darts_cifar.yaml", "--config-defaults", "confs/darts_cifar.yaml"]
+        },
+        {
+            "name": "ToyE2EDarts cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/darts/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/darts_cifar.yaml"]
+        },
+
 
         {
             "name": "ToySearchDarts cifar10",
