@@ -1,9 +1,9 @@
 common:
     checkpoint:
-        freq: 3
+        freq: 20
 
 dataset: 
-    max_batches: 42
+    max_batches: -1
 
 autoaug:
     loader:

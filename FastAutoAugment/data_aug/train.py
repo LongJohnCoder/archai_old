@@ -266,15 +266,15 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
                 best_top1 = rs[metric]['top1']
                 best_valid_loss = rs[metric]['loss']
                 for key, setname in itertools.product(
-                        ['loss', 'top1', 'top5'], ['train', 'test']):
+                        ['loss', 'top1', 'top5'], ['train', 'valid', 'test']):
                     result['%s_%s' % (key, setname)] = rs[setname][key]
                 result['epoch'] = epoch
 
-                #writer.add_scalar('best_top1/valid', rs['valid']['top1'], epoch)
+                writer.add_scalar('best_top1/valid', rs['valid']['top1'], epoch)
                 writer.add_scalar('best_top1/test', rs['test']['top1'], epoch)
 
                 reporter(
-                    #loss_valid=rs['valid']['loss'], top1_valid=rs['valid']['top1'],
+                    loss_valid=rs['valid']['loss'], top1_valid=rs['valid']['top1'],
                     loss_test=rs['test']['loss'], top1_test=rs['test']['top1']
                 )
 
@@ -285,7 +285,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
                         'epoch': epoch,
                         'log': {
                             'train': rs['train'].get_dict(),
-                            #'valid': rs['valid'].get_dict(),
+                            'valid': rs['valid'].get_dict(),
                             'test': rs['test'].get_dict(),
                         },
                         'optimizer': optimizer.state_dict(),

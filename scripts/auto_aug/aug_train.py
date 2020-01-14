@@ -13,9 +13,13 @@ if __name__ == '__main__':
     import time
     t = time.time()
     save_path = expdir_abspath('model.pth')
+
     # result = train_and_eval(conf, val_ratio=conf['val_ratio'], val_fold=conf['val_fold'],
     #                         save_path=save_path, only_eval=conf['only_eval'], metric='test')
-    result = train_and_eval(conf, val_ratio=0, val_fold=0,
+
+    # TODO: Will fail if val_ratio=0 since we are not using latest training infrastructure
+    # TODO: Move val_ratio, val_fold, metric to config file
+    result = train_and_eval(conf, val_ratio=0.2, val_fold=0,
                             save_path=save_path, only_eval=False, metric='test')
     elapsed = time.time() - t
 
