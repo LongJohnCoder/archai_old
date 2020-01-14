@@ -41,8 +41,6 @@
             "console": "integratedTerminal",
             "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/darts_cifar.yaml"]
         },
-
-
         {
             "name": "ToySearchDarts cifar10",
             "type": "python",
@@ -83,6 +81,14 @@
             "args": ["--config", "confs/cifar_toy.yaml",
                 "--config-defaults", "confs/petridish_cifar.yaml"
             ]
+        },
+        {
+            "name": "ToyE2EPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/petridish_cifar.yaml"]
         },
 
         {
