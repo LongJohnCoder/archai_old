@@ -46,7 +46,7 @@ def search_arch(conf_search:Config, micro_builder:MicroBuilder,
        val_metrics.save('search_val_metrics')
 
     # save found model
-    found_model_desc = arch_trainer.get_model_desc()
+    found_model_desc = arch_trainer.finalize(restore_device=False)
     save_path = found_model_desc.save(final_desc_filename)
     if save_path:
         logger.info(f"Best architecture saved in {save_path}")

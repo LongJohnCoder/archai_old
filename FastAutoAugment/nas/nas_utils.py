@@ -18,7 +18,7 @@ def create_model_desc(conf_model_desc: Config, run_mode:RunMode,
     builder = MacroBuilder(conf_model_desc,
                                run_mode=run_mode,
                                template=template_model_desc)
-    model_desc = builder.get_model_desc()
+    model_desc = builder.model_desc()
 
     if micro_builder:
         micro_builder.register_ops()

@@ -141,10 +141,10 @@ class PetridishOp(Op):
             # Here op should be nn.Sequence of sg followed by primitive.
             # First for loop gets edge and associated alphas.
             # Second for loop gets op and associated alpha.
-            l = ((a, i, op[1].desc)                                         \
+            l = ((a, i, op[1])                                         \
                 for edge_alphas, i, edge in                                 \
                     zip(self._alphas, range(self.desc.in_len), self._edges) \
-                for a, op in zip(edge_alphas, edge))
+                for a, op in zip(edge_alphas, edge)) # op is nn.Sequence
 
             # select 3 largest ops by alpha
             sel = heapq.nlargest(3, l, key=lambda t: t[0])  # TODO: add config
@@ -152,8 +152,13 @@ class PetridishOp(Op):
         # PetridishFinalOp needs to know each input and associated primitive
         final_op_desc = OpDesc(name='petridish_final_op',
                                 params={
+                                    # copy convolution parameters
                                     'conv': self.desc.params['conv'],
-                                    'ins_and_ops': [(i, desc) for a, i, desc in sel]
+                                    # primitive's finalize call also records its
+                                    # weights in description. finalize call returns
+                                    # (desc, rank) where rank for primitive is None
+                                    'ins_and_ops': [(i, op.finalize()[0]) \
+                                                    for a, i, op in sel]
                                 },
                                 # Number of inputs remains same although only 3 of
                                 # them will be used.

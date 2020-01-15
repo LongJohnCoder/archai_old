@@ -35,8 +35,7 @@ class CheckPoint(UserDict):
     def load_existing(self)->bool:
         assert self.is_empty()
         if self._filepath and os.path.exists(self._filepath):
-            d = torch.load(self._filepath,
-                           map_location=lambda storage, loc: storage)
+            d = torch.load(self._filepath, map_location=torch.device('cpu'))
             self.clear()
             self.update(d)
             return True

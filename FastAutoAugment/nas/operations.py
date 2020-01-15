@@ -1,6 +1,7 @@
 from argparse import ArgumentError
 from typing import Callable, Iterable, Tuple, Dict, Optional
 from abc import ABC
+import copy
 
 from overrides import overrides, EnforceOverrides
 
@@ -39,6 +40,11 @@ class Op(nn.Module, ABC, EnforceOverrides):
     def create(op_desc:OpDesc,
                alphas:Iterable[nn.Parameter]=[])->'Op':
         op = _ops_factory[op_desc.name](op_desc, alphas)
+
+        # load any pre-trained weights
+        if op_desc.trainables is not None:
+            op.load_state_dict(op_desc.trainables)
+
         # TODO: annotate as Final
         op.desc = op_desc # type: ignore
         return op
@@ -65,7 +71,9 @@ class Op(nn.Module, ABC, EnforceOverrides):
 
     def finalize(self)->Tuple[OpDesc, Optional[float]]:
         """for trainable op, return final op and its rank"""
-        return self._desc, None
+        desc = copy.deepcopy(self.desc)
+        desc.trainables = copy.deepcopy(self.state_dict())
+        return desc, None # desc, rank (None if cannot be removed)
 
     # if op should not be dropped during drop path then return False
     def can_drop_path(self)->bool:

@@ -63,7 +63,8 @@ class MixedOp(Op):
         # select except 'none' op
         with torch.no_grad():
             val, i = torch.topk(self._alphas[0][:-1], 1)
-        return self._ops[i].desc, float(val.item())
+            desc, _ = self._ops[i].finalize()
+            return desc, float(val.item())
 
     @overrides
     def can_drop_path(self) -> bool:

@@ -179,7 +179,7 @@ def _setup_gpus(conf_common):
             'PyTorch code will be 6X slower because detect_anomaly=True.')
         torch.autograd.set_detect_anomaly(True)
 
-    logger.info('Machine has {} gpus: {}'.format(torch.cuda.device_count(),
+    logger.info('Machine has {} gpu(s): {}'.format(torch.cuda.device_count(),
         ', '.join([torch.cuda.get_device_name(i) \
             for i in range(torch.cuda.device_count())])))
     logger.info('Original CUDA_VISIBLE_DEVICES: {}'.format(

@@ -40,7 +40,7 @@ class MacroBuilder(EnforceOverrides):
                         cell_desc.cell_type==CellType.Reduction:
                     self.reduction_template = cell_desc
 
-    def get_model_desc(self)->ModelDesc:
+    def model_desc(self)->ModelDesc:
         # create stems
         stem0_op, stem1_op = self._get_model_stems()
 

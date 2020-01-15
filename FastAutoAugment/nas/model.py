@@ -95,7 +95,13 @@ class Model(nn.Module):
 
         return logits, logits_aux
 
+    def device_type(self)->str:
+        return next(self.parameters()).device.type
+
     def finalize(self, max_edges)->ModelDesc:
+        # finalize will create copy of state and this can overflow GPU RAM
+        assert self.device_type() == 'cpu'
+
         cell_descs = [cell.finalize(max_edges=max_edges) for cell in self._cells]
         return ModelDesc(stem0_op=self.desc.stem0_op,
                          stem1_op=self.desc.stem1_op,

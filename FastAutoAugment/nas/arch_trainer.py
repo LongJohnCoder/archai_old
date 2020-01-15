@@ -52,8 +52,14 @@ class ArchTrainer(Trainer, EnforceOverrides):
             # log model_desc as a image
             plot_filepath = os.path.join(
                 self._plotsdir, "EP{train_metrics.epoch:03d}")
-            draw_model_desc(self.get_model_desc(), plot_filepath+"-normal",
+            draw_model_desc(self.finalize(), plot_filepath+"-normal",
                             caption=f"Epoch {train_metrics.epoch}")
 
-    def get_model_desc(self) -> ModelDesc:
-        return self.model.finalize(max_edges=self._max_final_edges)
+    def finalize(self, to_cpu=True, restore_device=True) -> ModelDesc:
+        original = self.model.device_type()
+        if to_cpu:
+            self.model = self.model.cpu()
+        desc = self.model.finalize(max_edges=self._max_final_edges)
+        if restore_device:
+            self.model = self.model.to(original)
+        return desc
