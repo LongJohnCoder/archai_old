@@ -90,6 +90,14 @@
             "console": "integratedTerminal",
             "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/petridish_cifar.yaml"]
         },
+        {
+            "name": "E2EPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/petridish_cifar.yaml", "--config-defaults", "confs/petridish_cifar.yaml"]
+        },
 
         {
             "name": "ToySearchRandom cifar10",
