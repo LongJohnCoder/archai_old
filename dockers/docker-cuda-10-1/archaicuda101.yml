@@ -1,4 +1,4 @@
-name: petridishpytorch
+name: archaicuda101
 channels:
   - pytorch
   - defaults
@@ -272,5 +272,5 @@ dependencies:
     - werkzeug==0.16.0
     - widgetsnbextension==3.5.1
     - graphviz
-prefix: /home/dedey/miniconda3/envs/petridishpytorch
+prefix: /home/dedey/miniconda3/envs/archaicuda101
 
