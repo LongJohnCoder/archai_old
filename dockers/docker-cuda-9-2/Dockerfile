@@ -2,7 +2,7 @@ FROM nvidia/cuda:10.1-devel
 
 # Labels for the docker
 LABEL description="This docker has the environment for running petridish experiments in pytorch" \
-      repository="petridishpytorch92" \
+      repository="archai92" \
       tag="latest" \
       creator="dedey" tooltype="pytorch" \
       tooltypeversion="1.3.1" \
@@ -41,12 +41,12 @@ RUN curl -so /miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-latest
 
 ENV PATH=/miniconda/bin:$PATH
 
-ADD petridishpytorchcuda92.yml /tmp/petridishpytorchcuda92.yml
+ADD archaicuda92.yml /tmp/archaicuda92.yml
 
-RUN conda env create -f /tmp/petridishpytorchcuda92.yml && \
-    echo "source activate petridishpytorchcuda92" >> ~/.bashrc
+RUN conda env create -f /tmp/archaicuda92.yml && \
+    echo "source activate archaicuda92" >> ~/.bashrc
 
-ENV PATH /miniconda/envs/petridishpytorchcuda92/bin:$PATH
+ENV PATH /miniconda/envs/archaicuda92/bin:$PATH
 
 ADD requirements.txt /tmp/requirements.txt
 
