@@ -183,7 +183,7 @@ def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
             # adjust max epochs for warmup
             # TODO: shouldn't we be increasing epochs or schedule lr only after warmup?
             if conf_lrs.get('warmup', None):
-                epochs -= conf_lrs['warmup']['epoch']
+                epochs -= conf_lrs['warmup']['epochs']
             scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs,
                 eta_min=conf_lrs['min_lr'])
         elif lr_scheduler_type == 'resnet':
@@ -213,7 +213,7 @@ def create_lr_scheduler(conf_lrs:Config, epochs:int, optimizer:Optimizer,
             scheduler = GradualWarmupScheduler(
                 optimizer,
                 multiplier=conf_lrs['warmup']['multiplier'],
-                total_epoch=conf_lrs['warmup']['epoch'],
+                total_epoch=conf_lrs['warmup']['epochs'],
                 after_scheduler=scheduler
             )
 

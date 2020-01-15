@@ -25,7 +25,22 @@
             "program": "${cwd}/tests/scripts/imagenet_test.py",
             "console": "integratedTerminal"
         },
-
+        {
+            "name": "E2EDarts cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/darts/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/darts_cifar.yaml", "--config-defaults", "confs/darts_cifar.yaml"]
+        },
+        {
+            "name": "ToyE2EDarts cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/darts/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/darts_cifar.yaml"]
+        },
         {
             "name": "ToySearchDarts cifar10",
             "type": "python",
@@ -66,6 +81,22 @@
             "args": ["--config", "confs/cifar_toy.yaml",
                 "--config-defaults", "confs/petridish_cifar.yaml"
             ]
+        },
+        {
+            "name": "ToyE2EPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/cifar_toy.yaml", "--config-defaults", "confs/petridish_cifar.yaml"]
+        },
+        {
+            "name": "E2EPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_e2e.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/petridish_cifar.yaml", "--config-defaults", "confs/petridish_cifar.yaml"]
         },
 
         {
@@ -139,12 +170,22 @@
         },
 
         {
-            "name": "TrainAug cifar10",
+            "name": "TrainAug resnet50 cocob cifar10",
             "type": "python",
             "request": "launch",
             "program": "${cwd}/scripts/auto_aug/aug_train.py",
             "console": "integratedTerminal",
-            "args": ["--config", "confs/aug_train_cifar_wresnet40x2.yaml", "--config-defaults", "confs/aug_train_cifar.yaml",
+            "args": ["--config", "confs/aug_cifar_cocob_resnet50.yaml", "--config-defaults", "confs/aug_cifar.yaml",
+                    "--aug", "fa_reduced_cifar10"
+            ]
+        },
+        {
+            "name": "TrainAug resnet50 sgd cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/auto_aug/aug_train.py",
+            "console": "integratedTerminal",
+            "args": ["--config", "confs/aug_cifar_sgd_resnet50.yaml", "--config-defaults", "confs/aug_cifar.yaml",
                     "--aug", "fa_reduced_cifar10"
             ]
         },

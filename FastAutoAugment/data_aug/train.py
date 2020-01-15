@@ -50,13 +50,6 @@ def run_epoch(conf, logger, model:nn.Module, loader, loss_fn, optimizer,
             optimizer.zero_grad()
 
         preds = model(data)
-
-        # Try to visualize model via tensorwatch
-        # tw.draw_model(model, tuple(data.shape)).save('/home/dedey/model.png')
-
-        # Try to visualize model via tensorboard
-        # writer.add_graph(model, data)
-        # logger.info('Just wrote model file!')
         loss = loss_fn(preds, label)
 
         if optimizer:
@@ -79,7 +72,8 @@ def run_epoch(conf, logger, model:nn.Module, loader, loss_fn, optimizer,
         if verbose:
             postfix = metrics / cnt
             if optimizer:
-                postfix['lr'] = optimizer.param_groups[0]['lr']
+                if 'lr' in optimizer.param_groups[0]:
+                    postfix['lr'] = optimizer.param_groups[0]['lr']
             loader.set_postfix(postfix)
 
         # below changes LR for every batch in epoch
@@ -99,7 +93,8 @@ def run_epoch(conf, logger, model:nn.Module, loader, loss_fn, optimizer,
 
     metrics /= cnt
     if optimizer:
-        metrics.metrics['lr'] = optimizer.param_groups[0]['lr']
+        if 'lr' in optimizer.param_groups[0]:
+            metrics.metrics['lr'] = optimizer.param_groups[0]['lr']
     if verbose:
         for key, value in metrics.items():
             writer.add_scalar('{}/{}'.format(key, split_type), value, epoch)
@@ -126,6 +121,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
     aug             = conf_loader['aug']
     cutout          = conf_loader['cutout']
     batch_size      = conf_loader['batch']
+    max_batches     = conf_data['max_batches']
     epochs          = conf_loader['epochs']
     conf_model      = conf['autoaug']['model']
     conf_opt        = conf['autoaug']['optimizer']
@@ -149,7 +145,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
     train_dl, valid_dl, test_dl, trainsampler = get_dataloaders(ds_name,
         batch_size, dataroot, aug, cutout,
         load_train=True, load_test=True, val_ratio=val_ratio, val_fold=val_fold,
-        horovod=horovod, n_workers=n_workers)
+        horovod=horovod, n_workers=n_workers, max_batches=max_batches)
 
     # create a model & an optimizer
     model = get_model(conf_model, num_class(ds_name),
@@ -222,8 +218,9 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
         rs = dict() # stores metrics for each set
         rs['train'] = run_epoch(conf, logger, model, train_dl, lossfn, None,
             split_type='train', epoch=0)
-        rs['valid'] = run_epoch(conf, logger, model, valid_dl, lossfn, None,
-            split_type='valid', epoch=0)
+        if valid_dl:
+            rs['valid'] = run_epoch(conf, logger, model, valid_dl, lossfn, None,
+                split_type='valid', epoch=0)
         rs['test'] = run_epoch(conf, logger, model, test_dl, lossfn, None,
             split_type='test', epoch=0)
 
@@ -247,7 +244,7 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
         rs['train'] = run_epoch(conf, logger, model, train_dl, lossfn,
             optimizer, split_type='train', epoch=epoch, verbose=is_master,
             scheduler=scheduler)
-        if scheduler:
+        if scheduler[0]:
             scheduler[0].step()
 
         model.eval()
@@ -258,8 +255,9 @@ def train_and_eval(conf, val_ratio, val_fold, save_path, only_eval,
 
         # collect metrics on val and test set, checkpoint
         if epoch % checkpoint_freq == 0 or epoch == max_epoch:
-            rs['valid'] = run_epoch(conf, logger, model, valid_dl, lossfn,
-                None, split_type='valid', epoch=epoch, verbose=is_master)
+            if valid_dl:
+                rs['valid'] = run_epoch(conf, logger, model, valid_dl, lossfn,
+                    None, split_type='valid', epoch=epoch, verbose=is_master)
             rs['test'] = run_epoch(conf, logger, model, test_dl, lossfn,
                 None, split_type='test', epoch=epoch, verbose=is_master)
 

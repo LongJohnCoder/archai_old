@@ -1,5 +1,0 @@
-
-
-autoaug:
-    model:
-        type: 'resnet50'
