@@ -163,4 +163,4 @@ class DawnNet(nn.Module):
         final_flatten = self.final_flatten(final_concat)
         final_linear = self.final_linear(final_flatten)
         logits = self.logits(final_linear)
-        return logits, None
+        return logits

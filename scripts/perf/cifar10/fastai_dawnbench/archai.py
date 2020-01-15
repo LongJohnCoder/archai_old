@@ -7,7 +7,7 @@ from FastAutoAugment.common.check_point import CheckPoint
 from FastAutoAugment.common.config import Config
 from FastAutoAugment.common.common import get_logger, common_init
 from FastAutoAugment.nas import nas_utils
-from dawnnet import DawnNet
+from dawn_net import DawnNet
 from basic_net import BasicNet
 
 Net = DawnNet
@@ -38,7 +38,7 @@ def train_test(conf_eval:Config):
 
 if __name__ == '__main__':
     conf = common_init(config_filepath='confs/dawnbench.yaml',
-                       param_args=['--common.experiment_name', 'dawnnet'])
+                       param_args=['--common.experiment_name', 'dawn_net'])
 
     conf_eval = conf['nas']['eval']
 
