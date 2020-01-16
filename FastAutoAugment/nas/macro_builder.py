@@ -5,27 +5,29 @@ from overrides import EnforceOverrides
 
 from ..common.config import Config
 from .model_desc import ModelDesc, OpDesc, CellType, NodeDesc, EdgeDesc, \
-                        CellDesc, AuxTowerDesc, RunMode, ConvMacroParams
+                        CellDesc, AuxTowerDesc, ConvMacroParams
 from ..common.common import get_logger
 
 class MacroBuilder(EnforceOverrides):
-    def __init__(self, conf_model_desc: Config,
-                 run_mode:RunMode, template:Optional[ModelDesc]=None)->None:
+    def __init__(self, conf_model_desc: Config, aux_tower:bool,
+                 template:Optional[ModelDesc]=None)->None:
+        # region conf vars
         conf_data = conf_model_desc['dataset']
         self.ds_name = conf_data['name']
         self.ds_ch = conf_data['channels']
         self.n_classes = conf_data['n_classes']
-
         self.init_ch_out = conf_model_desc['init_ch_out']
         self.n_cells = conf_model_desc['n_cells']
         self.n_nodes = conf_model_desc['n_nodes']
         self.out_nodes = conf_model_desc['out_nodes']
         self.stem_multiplier = conf_model_desc['stem_multiplier']
         self.aux_weight = conf_model_desc['aux_weight']
-        self.run_mode = run_mode
+        self.max_final_edges = conf_model_desc['max_final_edges']
+        # endregion
+
+        self.aux_tower = aux_tower
         self.template = template
 
-        self.affine = run_mode!=RunMode.Search
         self._set_templates()
         self._set_op_names()
 
@@ -45,10 +47,12 @@ class MacroBuilder(EnforceOverrides):
         stem0_op, stem1_op = self._get_model_stems()
 
         # create cell descriptions
-        cell_descs, aux_tower_descs = self._get_cell_descs(stem0_op.params['conv'].ch_out)
+        cell_descs, aux_tower_descs = self._get_cell_descs(
+            stem0_op.params['conv'].ch_out, self.max_final_edges)
 
         pool_op = OpDesc(self.pool_op_name,
-                         params={'conv': cell_descs[-1].conv_params})
+                         params={'conv': cell_descs[-1].conv_params},
+                         in_len=1, trainables=None)
 
         return ModelDesc(stem0_op, stem1_op, pool_op, self.ds_ch,
                          self.n_classes, cell_descs, aux_tower_descs)
@@ -64,7 +68,7 @@ class MacroBuilder(EnforceOverrides):
             raise NotImplementedError(
                 f'Stem and pool ops for "{self.ds_name}" are not supported yet')
 
-    def _get_cell_descs(self, stem_ch_out:int)\
+    def _get_cell_descs(self, stem_ch_out:int, max_final_edges:int)\
             ->Tuple[List[CellDesc], List[Optional[AuxTowerDesc]]]:
         cell_descs, aux_tower_descs = [], []
         reduction_p = False
@@ -95,7 +99,7 @@ class MacroBuilder(EnforceOverrides):
                 s0_op=s0_op, s1_op=s1_op,
                 out_nodes=self.out_nodes, node_ch_out=ch_out,
                 alphas_from=alphas_from,
-                run_mode=self.run_mode
+                max_final_edges=max_final_edges
             ))
             # add any nodes from the template to the just added cell
             self._add_template_nodes(cell_descs[-1])
@@ -130,14 +134,14 @@ class MacroBuilder(EnforceOverrides):
 
         # copy each template node to cell
         for node, template_node in zip(cell_desc.nodes, cell_template.nodes):
-            for template_edge in template_node.edges:
-                params = deepcopy(template_edge.op_desc.params)
-                params['conv'] = cell_desc.conv_params
-                op_desc = OpDesc(template_edge.op_desc.name,
-                                    params=params, in_len=template_edge.op_desc.in_len)
-                edge = EdgeDesc(op_desc, len(node.edges),
-                                input_ids=template_edge.input_ids, run_mode=cell_desc.run_mode)
-                node.edges.append(edge)
+            edges_copy = deepcopy(template_node.edges)
+            nl = len(node.edges)
+            for ei, ec in enumerate(edges_copy):
+                # TODO: need method on EdgeDesc for for this
+                ec.op_desc.params['conv'] = deepcopy(cell_desc.conv_params)
+                ec.op_desc.clear_trainables() # TODO: check for compatibility?
+                ec.index = ei + nl
+            node.edges.extend(edges_copy)
 
     def _is_reduction(self, cell_index:int)->bool:
         return cell_index in [self.n_cells//3, 2*self.n_cells//3]
@@ -147,20 +151,20 @@ class MacroBuilder(EnforceOverrides):
         # TODO: investigate why affine=False for search but True for test
         s0_op = OpDesc('prepr_reduce' if reduction_p else 'prepr_normal',
                     params={
-                        'conv': ConvMacroParams(pp_ch_out, ch_out, self.affine)
-                    })
+                        'conv': ConvMacroParams(pp_ch_out, ch_out)
+                    }, in_len=1, trainables=None)
 
         s1_op = OpDesc('prepr_normal',
                     params={
-                        'conv': ConvMacroParams(p_ch_out, ch_out, self.affine)
-                    })
+                        'conv': ConvMacroParams(p_ch_out, ch_out)
+                    }, in_len=1, trainables=None)
         return s0_op, s1_op
 
     def _get_aux_tower(self, cell_desc:CellDesc) -> Optional[AuxTowerDesc]:
         # TODO: shouldn't we be adding aux tower at *every* 1/3rd?
-        if self.run_mode==RunMode.EvalTrain                        \
-                and self.aux_weight > 0.0                          \
-                and cell_desc.index == 2*self.n_cells//3:
+        if self.aux_tower and    \
+                self.aux_weight > 0.0 and   \
+                cell_desc.index == 2*self.n_cells//3:
             return AuxTowerDesc(cell_desc.cell_ch_out, self.n_classes)
         return None
 
@@ -169,7 +173,9 @@ class MacroBuilder(EnforceOverrides):
         # TODO: why do we need stem_multiplier?
         # TODO: in original paper stems are always affine
         conv_params = ConvMacroParams(self.ds_ch,
-            self.init_ch_out*self.stem_multiplier, self.affine)
-        stem0_op = OpDesc(name=self.stem0_op_name, params={'conv': conv_params})
-        stem1_op = OpDesc(name=self.stem1_op_name, params={'conv': conv_params})
+                                      self.init_ch_out*self.stem_multiplier)
+        stem0_op = OpDesc(name=self.stem0_op_name, params={'conv': conv_params},
+                          in_len=1, trainables=None)
+        stem1_op = OpDesc(name=self.stem1_op_name, params={'conv': conv_params},
+                          in_len=1, trainables=None)
         return stem0_op, stem1_op

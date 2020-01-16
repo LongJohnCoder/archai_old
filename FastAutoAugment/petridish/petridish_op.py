@@ -1,6 +1,7 @@
 from copy import deepcopy
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Sequence, Tuple, Mapping
 import heapq
+import copy
 
 import torch
 from torch import Tensor, nn
@@ -34,11 +35,11 @@ class StopGradient(Op):
         return y
 
 class StopForwardReductionOp(Op):
-    def __init__(self, op_desc:OpDesc):
+    def __init__(self, op_desc:OpDesc, affine:bool):
         super().__init__()
         self._op = nn.Sequential(
             StopForward(),
-            FactorizedReduce(op_desc)
+            FactorizedReduce(op_desc, affine)
         )
 
     @overrides
@@ -47,11 +48,11 @@ class StopForwardReductionOp(Op):
 
 
 class StopGradientReduction(Op):
-    def __init__(self, op_desc:OpDesc):
+    def __init__(self, op_desc:OpDesc, affine:bool):
         super().__init__()
         self._op = nn.Sequential(
             StopGradient(),
-            FactorizedReduce(op_desc)
+            FactorizedReduce(op_desc, affine)
         )
 
     @overrides
@@ -71,7 +72,8 @@ class PetridishOp(Op):
         'none'  # this must be at the end so top1 doesn't chose it
     ]
 
-    def __init__(self, op_desc:OpDesc, alphas: Iterable[nn.Parameter], reduction:bool):
+    def __init__(self, op_desc:OpDesc, alphas: Iterable[nn.Parameter],
+                 reduction:bool, affine:bool):
         super().__init__()
 
         # assume last PRIMITIVE is 'none' (this is used for finalize)
@@ -96,8 +98,9 @@ class PetridishOp(Op):
 
             # create primitives for the edge
             for primitive in PetridishOp.PRIMITIVES:
-                primitive_op = Op.create(OpDesc(primitive, params=params),
-                                        alphas=alphas)
+                primitive_op = Op.create(OpDesc(primitive, params=params,
+                                                in_len=1, trainables=None),
+                                        affine=affine, alphas=alphas)
                 # wrap primitive with sg
                 op = nn.Sequential(StopGradient(), primitive_op)
                 edge.append(op)
@@ -154,15 +157,16 @@ class PetridishOp(Op):
                                 params={
                                     # copy convolution parameters
                                     'conv': self.desc.params['conv'],
-                                    # primitive's finalize call also records its
-                                    # weights in description. finalize call returns
-                                    # (desc, rank) where rank for primitive is None
-                                    'ins_and_ops': [(i, op.finalize()[0]) \
-                                                    for a, i, op in sel]
+                                    '_ins': [i for a,i,op in sel]
                                 },
                                 # Number of inputs remains same although only 3 of
                                 # them will be used.
-                                in_len=self.desc.in_len
+                                in_len=self.desc.in_len,
+                                trainables=None,
+                                # primitive's finalize call also records its
+                                # weights in description. finalize call returns
+                                # (desc, rank) where rank for primitive is None
+                                children = [op.finalize()[0] for a,i,op in sel]
                                )
 
         # rank=None to indicate no further selection needed as in darts
@@ -176,9 +180,10 @@ class PetridishOp(Op):
         if not len(self._alphas):
             # Each nn.Parameter is tensor with alphas for entire edge.
             # We will create same numbers of nn.Parameter as number of edges
+            n_primitives = len(PetridishOp.PRIMITIVES)
             pl = nn.ParameterList((
                 nn.Parameter(  # TODO: use better init than uniform random?
-                    torch.FloatTensor(len(PetridishOp.PRIMITIVES)).uniform_(-0.1, 0.1),
+                    torch.FloatTensor(n_primitives).uniform_(-0.1, 0.1),
                     requires_grad=True)
                 for _ in range(in_len)
             ))
@@ -188,20 +193,24 @@ class PetridishOp(Op):
             self._alphas = [p for p in self.parameters()]
 
 class PetridishFinalOp(Op):
-    def __init__(self, op_desc:OpDesc) -> None:
+    def __init__(self, op_desc:OpDesc, affine:bool) -> None:
         super().__init__()
 
         # get list of inputs and associated primitives
-        ins_and_ops:Sequence[Tuple[int, OpDesc]] = op_desc.params['ins_and_ops']
+        assert op_desc.children is not None
+        iop_descs = op_desc.children
+        ins = op_desc.params['_ins']
+        assert len(iop_descs) == len(ins)
+
         # conv params typically specified by macro builder
         conv_params:ConvMacroParams = op_desc.params['conv']
 
         self._ops = nn.ModuleList()
         self._ins:List[int] = []
 
-        for i, op_desc in ins_and_ops:
-            op_desc.params['conv'] = conv_params
-            self._ops.append(Op.create(op_desc))
+        for i, iop_desc in zip(ins, iop_descs):
+            iop_desc.params['conv'] = conv_params
+            self._ops.append(Op.create(iop_desc, affine=affine))
             self._ins.append(i)
 
         # number of channels as we will concate output of ops
@@ -210,11 +219,10 @@ class PetridishFinalOp(Op):
         # Apply 1x1 conv to reduce back channels to as specified by macro builder
         self._conv = nn.Conv2d(ch_out_sum, conv_params.ch_out, 1,
                                 stride=1, padding=0, bias=False)
-        self._bn = nn.BatchNorm2d(conv_params.ch_out, affine=conv_params.affine)
+        self._bn = nn.BatchNorm2d(conv_params.ch_out, affine=affine)
 
     @overrides
     def forward(self, x:List[Tensor])->Tensor:
         res = torch.cat([op(x[i]) for op, i in zip(self._ops, self._ins)], dim=1)
         res = self._conv(res)
         return self._bn(res)
-

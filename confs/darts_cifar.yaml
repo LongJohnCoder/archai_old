@@ -29,68 +29,6 @@ dataset: &dataset
   max_batches: -1 # if >= 0 then only these many batches are generated (useful for debugging)
 
 nas:
-  search:
-    data_parallel: False
-    checkpoint: *checkpoint
-    resume: *resume
-    full_desc_filename: "full_model_desc.yaml" # arch before it was finalized
-    final_desc_filename: "final_model_desc.yaml" # final arch is saved in this file
-    device: *device
-    model_desc:
-      init_ch_out: 16 # num of output channels for the first cell
-      n_cells: 8 # number of cells
-      n_nodes: 4 # number of nodes in a cell
-      out_nodes: 4 # last n nodes to concate output from
-      stem_multiplier: 3 # output channels multiplier for the stem
-      aux_weight: &search_aux_weight 0.0 # weight for loss from auxiliary towers in test time arch
-      dataset: *dataset
-    loader:
-      aug: "" # additional augmentations to use
-      cutout: 0 # cutout length, use cutout augmentation when > 0
-      batch: 64
-      val_ratio: 0.5 #split portion for test set, 0 to 1
-      val_fold: 0 #Fold number to use (0 to 4)
-      cv_num: 5 # total number of folds available
-      n_workers: null # if null then gpu_count*4
-      load_train: True # load train split of dataset
-      load_test: False # load test split of dataset
-      horovod: *horovod
-      dataset: *dataset
-    trainer:
-      apex: False
-      aux_weight: *search_aux_weight
-      drop_path_prob: 0.0 # probability that given edge will be dropped
-      grad_clip: 5.0 # grads above this value is clipped
-      logger_freq: 50 # after every N updates dump loss and other metrics in logger
-      title: "search_train"
-      epochs: 50
-      # additional vals for the derived class
-      max_final_edges: 2 # max edge that can be in final arch per node
-      plotsdir: 'plots' # use default subfolder in logdir
-      l1_alphas: 0.0   # weight to be applied to sum(abs(alpahas)) to loss term
-      lossfn:
-        type: "CrossEntropyLoss"
-      optimizer:
-        type: "sgd"
-        lr: 0.025 # init learning rate
-        decay: 3.0e-4
-        momentum: 0.9 # pytorch default is 0
-        nesterov: False
-        warmup: null
-      alpha_optimizer:
-        type: "adam"
-        lr: 3.0e-4
-        decay: 1.0e-3
-        betas: [0.5, 0.999]
-      lr_schedule:
-        type: "cosine"
-        min_lr: 0.001 # min learning rate, this will be used in eta_min param of scheduler
-      validation:
-        title: "search_val"
-        logger_freq: 1000
-        freq: 1 # perform validation only every N epochs
-        lossfn:
-          type: "CrossEntropyLoss"
   eval:
     full_desc_filename: "full_model_desc.yaml" # model desc used for building model
     final_desc_filename: "final_model_desc.yaml" # model desc used as template to construct cells
@@ -107,7 +45,8 @@ nas:
       stem_multiplier: 3 # output channels multiplier for the stem
       aux_weight: &eval_aux_weight 0.4 # weight for loss from auxiliary towers in test time arch
       dataset: *dataset
-    loader:
+      max_final_edges: 2 # max edge that can be in final arch per node
+    loader: &eval_loader
       aug: "" # additional augmentations to use
       cutout: 16 # cutout length, use cutout augmentation when > 0
       batch: 96
@@ -119,7 +58,7 @@ nas:
       load_test: True # load test split of dataset
       horovod: *horovod
       dataset: *dataset
-    trainer:
+    trainer: &eval_trainer
       apex: False
       aux_weight: *eval_aux_weight
       drop_path_prob: 0.2 # probability that given edge will be dropped
@@ -143,6 +82,77 @@ nas:
         title: "eval_test"
         logger_freq: 1000
         freq: 1000 # perform validation only every N epochs
+        lossfn:
+          type: "CrossEntropyLoss"
+
+  search:
+    data_parallel: False
+    checkpoint: *checkpoint
+    resume: *resume
+    full_desc_filename: "full_model_desc.yaml" # arch before it was finalized
+    final_desc_filename: "final_model_desc.yaml" # final arch is saved in this file
+    device: *device
+    iterations: 1 # number of iterations for forward search
+    pretrain:
+      trainer:
+        <<: *eval_trainer
+        title: "search_pretrain"
+        epochs: 200 # number of epochs model will be trained before search
+        aux_weight: 0.0
+      loader: *eval_loader
+    model_desc:
+      init_ch_out: 16 # num of output channels for the first cell
+      n_cells: 8 # number of cells
+      n_nodes: 4 # number of nodes in a cell
+      out_nodes: 4 # last n nodes to concate output from
+      stem_multiplier: 3 # output channels multiplier for the stem
+      aux_weight: &search_aux_weight 0.0 # weight for loss from auxiliary towers in test time arch
+      dataset: *dataset
+      max_final_edges: 2 # max edge that can be in final arch per node
+    loader:
+      aug: "" # additional augmentations to use
+      cutout: 0 # cutout length, use cutout augmentation when > 0
+      batch: 64
+      val_ratio: 0.5 #split portion for test set, 0 to 1
+      val_fold: 0 #Fold number to use (0 to 4)
+      cv_num: 5 # total number of folds available
+      n_workers: null # if null then gpu_count*4
+      load_train: True # load train split of dataset
+      load_test: False # load test split of dataset
+      horovod: *horovod
+      dataset: *dataset
+    trainer:
+      apex: False
+      aux_weight: *search_aux_weight
+      drop_path_prob: 0.0 # probability that given edge will be dropped
+      grad_clip: 5.0 # grads above this value is clipped
+      logger_freq: 50 # after every N updates dump loss and other metrics in logger
+      title: "search_train"
+      epochs: 50
+      # additional vals for the derived class
+      plotsdir: '' # use default subfolder in logdir
+      l1_alphas: 0.0   # weight to be applied to sum(abs(alpahas)) to loss term
+      lossfn:
+        type: "CrossEntropyLoss"
+      optimizer:
+        type: "sgd"
+        lr: 0.025 # init learning rate
+        decay: 3.0e-4
+        momentum: 0.9 # pytorch default is 0
+        nesterov: False
+        warmup: null
+      alpha_optimizer:
+        type: "adam"
+        lr: 3.0e-4
+        decay: 1.0e-3
+        betas: [0.5, 0.999]
+      lr_schedule:
+        type: "cosine"
+        min_lr: 0.001 # min learning rate, this will be used in eta_min param of scheduler
+      validation:
+        title: "search_val"
+        logger_freq: 1000
+        freq: 1 # perform validation only every N epochs
         lossfn:
           type: "CrossEntropyLoss"
 
@@ -178,5 +188,5 @@ autoaug:
   lr_schedule:
     type: "cosine"
     min_lr: 0.0 # min learning rate, this will be used in eta_min param of scheduler
-  
+
 

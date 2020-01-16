@@ -1,8 +1,15 @@
 # System Architecture
 
+## Model Compiler Options
+
+- Macro builder will add auxtowers in eval
+- DagEdge will apply droppath in eval
+- BatchNorms will be affine in eval
+
 ## Search
 
 ### Algorithm
+
 For Darts and Random search:
 
 ```
@@ -27,7 +34,7 @@ for i = 1 to n_search_iter:
     if pre_train_epochs > 0:
         if all nodes non-empty:
             model = build_model(model_desc, restore_state=True)
-            train(model)
+            train(mode, pre_train_epochsl)
             macro_desc = finalize(model. include_state=True)
         elif all nodes empty:
             pass because no point in training empty model
@@ -48,3 +55,29 @@ for i = 1 to n_search_iter:
     # make sure FinalPetridishOp can+will run in search mode
     # we end with i nodes in each cell for Petridish at this point
 ```
+
+### Checkpointing search
+
+Loop1: search iterations
+    Loop2: pre-training
+    Loop3: arch-training
+
+Each loop has state and current index.
+
+Cases:
+    termination before Loop1
+    termination before Loop2
+    termination during Loop2
+    termination after Loop2
+    termination before Loop3
+    termination during Loop3
+    termination after Loop3
+    termination after Loop1
+
+Idea:
+    Each node maintains its unique key in checkpoint
+    Each node updates+saves checkpoint *just after* its iteration
+        Checkpoint can be saved any time
+    When node gets checkpoint, if it finds own key
+        it restores state, iteration and continues that iteration
+

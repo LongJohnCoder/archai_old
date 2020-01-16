@@ -32,7 +32,9 @@ class RandOps:
 
 class RandomMicroBuilder(MicroBuilder):
     @overrides
-    def build(self, model_desc:ModelDesc)->None:
+    def build(self, model_desc:ModelDesc, search_iteration:int)->None:
+        assert search_iteration==0, 'Multiple iterations for random search is not supported'
+
         # create random op sets for two cell types
         n_nodes = len(model_desc.cell_descs[0].nodes)
         max_edges = 2
@@ -60,9 +62,9 @@ class RandomMicroBuilder(MicroBuilder):
                                     params={
                                         'conv': cell_desc.conv_params,
                                         'stride': 2 if reduction and to_state < 2 else 1
-                                    })
+                                    }, in_len=1, trainables=None, children=None)
                 edge = EdgeDesc(op_desc, len(node.edges),
-                                input_ids=[to_state], run_mode=cell_desc.run_mode)
+                                input_ids=[to_state])
                 node.edges.append(edge)
 
 

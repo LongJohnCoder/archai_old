@@ -3,7 +3,6 @@ import os
 from FastAutoAugment.common.common import common_init
 from FastAutoAugment.nas.evaluate import eval_arch
 from FastAutoAugment.random_arch.random_micro_builder import RandomMicroBuilder
-from FastAutoAugment.nas.model_desc import RunMode
 
 from FastAutoAugment.nas import nas_utils
 

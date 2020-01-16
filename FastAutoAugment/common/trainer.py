@@ -218,11 +218,12 @@ class Trainer(EnforceOverrides):
                      aux_weight:float, aux_logits:Optional[Tensor])->Tensor:
         logger = get_logger()
         loss = lossfn(logits, y)
-        if aux_weight > 0.0:
-            if aux_logits is not None:
-                loss += aux_weight * lossfn(aux_logits, y)
-            else:
-                logger.warn(f'aux_weight is {aux_weight} but aux tower was not generated')
+
+        assert (aux_weight > 0.0 and aux_logits is not None) or \
+            (aux_weight == 0.0 and aux_logits is None)
+
+        if aux_weight > 0.0 and  aux_logits is not None:
+            loss += aux_weight * lossfn(aux_logits, y)
         return loss
 
     def _set_drop_path(self, epoch:int, epochs:int)->None:

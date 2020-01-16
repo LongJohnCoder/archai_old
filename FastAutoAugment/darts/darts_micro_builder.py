@@ -9,10 +9,12 @@ class DartsMicroBuilder(MicroBuilder):
     @overrides
     def register_ops(self) -> None:
         Op.register_op('mixed_op',
-                       lambda op_desc, alphas: MixedOp(op_desc, alphas))
+                       lambda op_desc, alphas, affine:
+                           MixedOp(op_desc, alphas, affine))
 
     @overrides
-    def build(self, model_desc:ModelDesc)->None:
+    def build(self, model_desc:ModelDesc, search_iteration:int)->None:
+        assert search_iteration==0, 'Multiple iterations for darts is not supported'
         for cell_desc in model_desc.cell_descs:
             self._build_cell(cell_desc)
 
@@ -26,9 +28,8 @@ class DartsMicroBuilder(MicroBuilder):
                                     params={
                                         'conv': cell_desc.conv_params,
                                         'stride': 2 if reduction and j < 2 else 1
-                                    })
-                edge = EdgeDesc(op_desc, len(node.edges),
-                                input_ids=[j], run_mode=cell_desc.run_mode)
+                                    }, in_len=1, trainables=None, children=None)
+                edge = EdgeDesc(op_desc, len(node.edges), input_ids=[j])
                 node.edges.append(edge)
 
 

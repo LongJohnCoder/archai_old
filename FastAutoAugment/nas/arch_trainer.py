@@ -23,7 +23,6 @@ class ArchTrainer(Trainer, EnforceOverrides):
         super().__init__(conf_train, model, device, check_point)
 
         self._l1_alphas = conf_train['l1_alphas']
-        self._max_final_edges = conf_train['max_final_edges']
         self._plotsdir = common.expdir_abspath(conf_train['plotsdir'], True)
 
     @overrides
@@ -52,14 +51,5 @@ class ArchTrainer(Trainer, EnforceOverrides):
             # log model_desc as a image
             plot_filepath = os.path.join(
                 self._plotsdir, "EP{train_metrics.epoch:03d}")
-            draw_model_desc(self.finalize(), plot_filepath+"-normal",
+            draw_model_desc(self.model.finalize(), plot_filepath+"-normal",
                             caption=f"Epoch {train_metrics.epoch}")
-
-    def finalize(self, to_cpu=True, restore_device=True) -> ModelDesc:
-        original = self.model.device_type()
-        if to_cpu:
-            self.model = self.model.cpu()
-        desc = self.model.finalize(max_edges=self._max_final_edges)
-        if restore_device:
-            self.model = self.model.to(original)
-        return desc

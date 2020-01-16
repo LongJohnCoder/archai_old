@@ -14,14 +14,14 @@ from ..common.common import get_logger, expdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
-    def __init__(self, model_desc:ModelDesc):
+    def __init__(self, model_desc:ModelDesc, affine:bool, droppath:bool):
         super().__init__()
 
         logger = get_logger()
 
         self.desc = model_desc
-        self._stem0_op = Op.create(model_desc.stem0_op)
-        self._stem1_op = Op.create(model_desc.stem1_op)
+        self._stem0_op = Op.create(model_desc.stem0_op, affine=affine)
+        self._stem1_op = Op.create(model_desc.stem1_op, affine=affine)
 
         self._cells = nn.ModuleList()
         self._aux_towers = nn.ModuleList()
@@ -30,13 +30,15 @@ class Model(nn.Module):
                 enumerate(zip(model_desc.cell_descs, model_desc.aux_tower_descs)):
             alphas_cell = None if cell_desc.alphas_from==i  \
                                else self._cells[cell_desc.alphas_from]
-            cell = Cell(cell_desc, alphas_cell)
+            cell = Cell(cell_desc,
+                        affine=affine, droppath=droppath,
+                        alphas_cell=alphas_cell)
             self._cells.append(cell)
             self._aux_towers.append(AuxTower(aux_tower_desc, pool_stride=3) \
                                     if aux_tower_desc else None)
 
         # adaptive pooling output size to 1x1
-        self.final_pooling = Op.create(model_desc.pool_op)
+        self.final_pooling = Op.create(model_desc.pool_op, affine=affine)
         # since ch_p records last cell's output channels
         # it indicates the input channel number
         self.linear = nn.Linear(model_desc.cell_descs[-1].cell_ch_out,
@@ -98,11 +100,19 @@ class Model(nn.Module):
     def device_type(self)->str:
         return next(self.parameters()).device.type
 
-    def finalize(self, max_edges)->ModelDesc:
+    def finalize(self, to_cpu=True, restore_device=True)->ModelDesc:
+        original = self.device_type()
+        if to_cpu:
+            self.cpu()
+
         # finalize will create copy of state and this can overflow GPU RAM
         assert self.device_type() == 'cpu'
 
-        cell_descs = [cell.finalize(max_edges=max_edges) for cell in self._cells]
+        cell_descs = [cell.finalize() for cell in self._cells]
+
+        if restore_device:
+            self.to(original, non_blocking=True)
+
         return ModelDesc(stem0_op=self.desc.stem0_op,
                          stem1_op=self.desc.stem1_op,
                          pool_op=self.desc.pool_op,

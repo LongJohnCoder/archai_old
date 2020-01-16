@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from overrides import overrides
 
-from ..nas.model_desc import RunMode, OpDesc
+from ..nas.model_desc import OpDesc
 from ..nas.operations import Op
 
 # TODO: reduction cell might have output reduced by 2^1=2X due to
@@ -29,7 +29,8 @@ class MixedOp(Op):
         'none'  # this must be at the end so top1 doesn't chose it
     ]
 
-    def __init__(self, op_desc:OpDesc, alphas: Iterable[nn.Parameter]):
+    def __init__(self, op_desc:OpDesc, alphas: Iterable[nn.Parameter],
+                 affine:bool):
         super().__init__()
 
         # assume last PRIMITIVE is 'none'
@@ -39,7 +40,8 @@ class MixedOp(Op):
         self._ops = nn.ModuleList()
         for primitive in MixedOp.PRIMITIVES:
             op = Op.create(
-                OpDesc(primitive, op_desc.params), alphas=alphas)
+                OpDesc(primitive, op_desc.params, in_len=1, trainables=None),
+                affine=affine, alphas=alphas)
             self._ops.append(op)
 
     @overrides

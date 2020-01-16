@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Mapping, Optional, Union
 import copy
 
 import torch
@@ -103,7 +103,6 @@ class _BilevelOptimizer:
         # to compute grads for alphas without disturbing
         # original weights
         self._vmodel = copy.deepcopy(model)
-
         # this is the optimizer to optimize alphas parameter
         self._alpha_optim = utils.create_optimizer(conf_alpaha_optim, model.alphas())
 

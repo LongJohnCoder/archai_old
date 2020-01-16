@@ -5,7 +5,7 @@ import torch
 from ..common.trainer import Trainer
 from ..common.config import Config
 from ..common.common import get_logger
-from .model_desc import ModelDesc, RunMode
+from .model_desc import ModelDesc
 from .micro_builder import MicroBuilder
 from . import nas_utils
 
@@ -28,11 +28,13 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
 
     device = torch.device(conf_eval['device'])
 
+    if micro_builder:
+        micro_builder.register_ops()
     model, checkpoint = nas_utils.model_and_checkpoint(
                                 conf_checkpoint, resume, full_desc_filename,
                                 conf_model_desc, device,
-                                run_mode=RunMode.EvalTrain,
-                                micro_builder=micro_builder,
+                                aux_tower=True,
+                                affine=True, droppath=True,
                                 template_model_desc=template_model_desc)
 
     # get data

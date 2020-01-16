@@ -1,12 +1,12 @@
 from argparse import ArgumentError
-from typing import Callable, Iterable, Tuple, Dict, Optional
+from typing import Callable, Iterable, Mapping, Tuple, Dict, Optional
 from abc import ABC
 import copy
 
 from overrides import overrides, EnforceOverrides
 
 import torch
-from torch import nn, Tensor
+from torch import nn, Tensor, strided
 
 from ..common import utils
 from .model_desc import OpDesc, ConvMacroParams
@@ -15,42 +15,67 @@ from .model_desc import OpDesc, ConvMacroParams
 OpFactoryFn = Callable[[OpDesc, Iterable[nn.Parameter]], 'Op']
 
 # Each op is a unary tensor operator, all take same constructor params
-_ops_factory:Dict[str, OpFactoryFn] = {
-    'max_pool_3x3':     lambda op_desc, alphas: PoolBN('max', op_desc),
-    'avg_pool_3x3':     lambda op_desc, alphas: PoolBN('avg', op_desc),
-    'skip_connect':     lambda op_desc, alphas: SkipConnect(op_desc),
-    'sep_conv_3x3':     lambda op_desc, alphas: SepConv(op_desc, 3, 1),
-    'sep_conv_5x5':     lambda op_desc, alphas: SepConv(op_desc, 5, 2),
-    'dil_conv_3x3':     lambda op_desc, alphas: DilConv(op_desc, 3, op_desc.params['stride'], 2, 2),
-    'dil_conv_5x5':     lambda op_desc, alphas: DilConv(op_desc, 5, op_desc.params['stride'], 4, 2),
-    'none':             lambda op_desc, alphas: Zero(op_desc),
-    'sep_conv_7x7':     lambda op_desc, alphas: SepConv(op_desc, 7, 3),
-    'conv_7x1_1x7':     lambda op_desc, alphas: FacConv(op_desc, 7, 3),
-    'prepr_reduce':     lambda op_desc, alphas: FactorizedReduce(op_desc),
-    'prepr_normal':     lambda op_desc, alphas: ReLUConvBN(op_desc, 1, 1, 0),
-    'stem_cifar':       lambda op_desc, alphas: StemCifar(op_desc),
-    'stem0_imagenet':   lambda op_desc, alphas: Stem0Imagenet(op_desc),
-    'stem1_imagenet':   lambda op_desc, alphas: Stem1Imagenet(op_desc),
-    'pool_cifar':       lambda op_desc, alphas: PoolCifar(),
-    'pool_imagenet':    lambda op_desc, alphas: PoolImagenet()
+_ops_factory:Dict[str, Callable] = {
+    'max_pool_3x3':     lambda op_desc, alphas, affine:
+                            PoolBN('max', op_desc, affine),
+    'avg_pool_3x3':     lambda op_desc, alphas, affine:
+                            PoolBN('avg', op_desc, affine),
+    'skip_connect':     lambda op_desc, alphas, affine:
+                            SkipConnect(op_desc, affine),
+    'sep_conv_3x3':     lambda op_desc, alphas, affine:
+                            SepConv(op_desc, 3, 1, affine),
+    'sep_conv_5x5':     lambda op_desc, alphas, affine:
+                            SepConv(op_desc, 5, 2, affine),
+    'dil_conv_3x3':     lambda op_desc, alphas, affine:
+                            DilConv(op_desc, 3, op_desc.params['stride'], 2, 2, affine),
+    'dil_conv_5x5':     lambda op_desc, alphas, affine:
+                            DilConv(op_desc, 5, op_desc.params['stride'], 4, 2, affine),
+    'none':             lambda op_desc, alphas, affine:
+                            Zero(op_desc),
+    'sep_conv_7x7':     lambda op_desc, alphas, affine:
+                            SepConv(op_desc, 7, 3, affine),
+    'conv_7x1_1x7':     lambda op_desc, alphas, affine:
+                            FacConv(op_desc, 7, 3, affine),
+    'prepr_reduce':     lambda op_desc, alphas, affine:
+                            FactorizedReduce(op_desc, affine),
+    'prepr_normal':     lambda op_desc, alphas, affine:
+                            ReLUConvBN(op_desc, 1, 1, 0, affine),
+    'stem_cifar':       lambda op_desc, alphas, affine:
+                            StemCifar(op_desc, affine),
+    'stem0_imagenet':   lambda op_desc, alphas, affine:
+                            Stem0Imagenet(op_desc, affine),
+    'stem1_imagenet':   lambda op_desc, alphas, affine:
+                            Stem1Imagenet(op_desc, affine),
+    'pool_cifar':       lambda op_desc, alphas, affine:
+                            PoolCifar(),
+    'pool_imagenet':    lambda op_desc, alphas, affine:
+                            PoolImagenet()
 }
 
 class Op(nn.Module, ABC, EnforceOverrides):
     @staticmethod
-    def create(op_desc:OpDesc,
+    def create(op_desc:OpDesc, affine:bool,
                alphas:Iterable[nn.Parameter]=[])->'Op':
-        op = _ops_factory[op_desc.name](op_desc, alphas)
-
-        # load any pre-trained weights
-        if op_desc.trainables is not None:
-            op.load_state_dict(op_desc.trainables)
-
-        # TODO: annotate as Final
+        op = _ops_factory[op_desc.name](op_desc, alphas, affine)
+        # TODO: annotate as Final?
         op.desc = op_desc # type: ignore
+        # load any pre-trained weights
+        op.set_trainables(op_desc.trainables)
         return op
 
+    def get_trainables(self)->Mapping:
+        return {'name': self.desc.name, 'sd': self.state_dict()}
+    def set_trainables(self, state_dict)->None:
+        if state_dict is not None:
+            assert state_dict['name'] == self.desc.name
+            # At search time, batchnorms are not affine so when restoring
+            # weights during pretraining we don't have those keys which is why
+            # we use strict=False
+            # TODO: should we assign op_desc uuid to enforce more strictness?
+            self.load_state_dict(state_dict['sd'], strict=False)
+
     @staticmethod
-    def register_op(name: str, factory_fn: OpFactoryFn, exists_ok=True) -> None:
+    def register_op(name: str, factory_fn: Callable, exists_ok=True) -> None:
         global _ops_factory
         if name in _ops_factory:
             if not exists_ok:
@@ -72,7 +97,7 @@ class Op(nn.Module, ABC, EnforceOverrides):
     def finalize(self)->Tuple[OpDesc, Optional[float]]:
         """for trainable op, return final op and its rank"""
         desc = copy.deepcopy(self.desc)
-        desc.trainables = copy.deepcopy(self.state_dict())
+        desc.trainables = copy.deepcopy(self.get_trainables())
         return desc, None # desc, rank (None if cannot be removed)
 
     # if op should not be dropped during drop path then return False
@@ -82,7 +107,7 @@ class Op(nn.Module, ABC, EnforceOverrides):
 class PoolBN(Op):
     """AvgPool or MaxPool - BN """
 
-    def __init__(self, pool_type:str, op_desc:OpDesc):
+    def __init__(self, pool_type:str, op_desc:OpDesc, affine:bool):
         """
         Args:
             pool_type: 'max' or 'avg'
@@ -91,7 +116,6 @@ class PoolBN(Op):
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
-        affine = conv_params.affine
 
         stride = op_desc.params['stride']
         kernel_size = op_desc.params.get('kernel_size', 3)
@@ -114,12 +138,12 @@ class PoolBN(Op):
         return out
 
 class SkipConnect(Op):
-    def __init__(self, op_desc:OpDesc) -> None:
+    def __init__(self, op_desc:OpDesc, affine) -> None:
         super().__init__()
 
         stride = op_desc.params['stride']
         self._op = Identity() if stride == 1 \
-                              else FactorizedReduce(op_desc)
+                              else FactorizedReduce(op_desc, affine)
 
     @overrides
     def forward(self, x:Tensor)->Tensor:
@@ -137,13 +161,13 @@ class FacConv(Op):
     ReLU - Conv(Kx1) - Conv(1xK) - BN
     """
 
-    def __init__(self, op_desc:OpDesc, kernel_length:int, padding:int):
+    def __init__(self, op_desc:OpDesc, kernel_length:int, padding:int,
+                 affine:bool):
         super().__init__()
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         stride = op_desc.params['stride']
 
@@ -162,11 +186,11 @@ class FacConv(Op):
 
 
 class ReLUConvBN(Op):
-    def __init__(self, op_desc:OpDesc, kernel_size:int, stride:int, padding:int):
+    def __init__(self, op_desc:OpDesc, kernel_size:int, stride:int, padding:int,
+                 affine:bool):
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         super(ReLUConvBN, self).__init__()
 
@@ -190,12 +214,12 @@ class DilConv(Op):
                       5x5 conv => 9x9 receptive field
     """
 
-    def __init__(self, op_desc:OpDesc, kernel_size:int, stride:int,  padding:int, dilation:int):
+    def __init__(self, op_desc:OpDesc, kernel_size:int, stride:int,  padding:int,
+                 dilation:int, affine:bool):
         super(DilConv, self).__init__()
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         self.op = nn.Sequential(
             nn.ReLU(),
@@ -218,12 +242,15 @@ class SepConv(Op):
     This is same as two DilConv stacked with dilation=1
     """
 
-    def __init__(self, op_desc:OpDesc, kernel_size:int, padding:int):
+    def __init__(self, op_desc:OpDesc, kernel_size:int, padding:int,
+                 affine:bool):
         super(SepConv, self).__init__()
 
         self.op = nn.Sequential(
-            DilConv(op_desc, kernel_size, op_desc.params['stride'], padding, dilation=1),
-            DilConv(op_desc, kernel_size, 1, padding, dilation=1))
+            DilConv(op_desc, kernel_size, op_desc.params['stride'],
+                    padding, dilation=1, affine=affine),
+            DilConv(op_desc, kernel_size, 1,
+                    padding, dilation=1, affine=affine))
 
     @overrides
     def forward(self, x):
@@ -263,13 +290,12 @@ class FactorizedReduce(Op):
     """
     # TODO: modify to take number of nodes in reduction cells where stride 2 was applied (currently only first two input nodes)
 
-    def __init__(self, op_desc:OpDesc):
+    def __init__(self, op_desc:OpDesc, affine:bool):
         super(FactorizedReduce, self).__init__()
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         assert ch_out % 2 == 0
 
@@ -297,13 +323,12 @@ class FactorizedReduce(Op):
         return out
 
 class StemCifar(Op):
-    def __init__(self, op_desc:OpDesc)->None:
+    def __init__(self, op_desc:OpDesc, affine:bool)->None:
         super().__init__()
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         self._op = nn.Sequential( # 3 => 48
             # batchnorm is added after each layer. Bias is turned off due to
@@ -321,13 +346,12 @@ class StemCifar(Op):
         return False
 
 class Stem0Imagenet(Op):
-    def __init__(self, op_desc)->None:
+    def __init__(self, op_desc, affine:bool)->None:
         super().__init__()
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         self._op = nn.Sequential(
             nn.Conv2d(ch_in, ch_out//2, kernel_size=3, stride=2, padding=1, bias=False),
@@ -346,13 +370,12 @@ class Stem0Imagenet(Op):
         return False
 
 class Stem1Imagenet(Op):
-    def __init__(self, op_desc)->None:
+    def __init__(self, op_desc, affine:bool)->None:
         super().__init__()
 
         conv_params:ConvMacroParams = op_desc.params['conv']
         ch_in = conv_params.ch_in
         ch_out = conv_params.ch_out
-        affine = conv_params.affine
 
         self._op = nn.Sequential(
             nn.ReLU(inplace=True),

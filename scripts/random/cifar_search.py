@@ -1,6 +1,5 @@
 from FastAutoAugment.common.common import common_init
 from FastAutoAugment.random_arch.random_micro_builder import RandomMicroBuilder
-from FastAutoAugment.nas.model_desc import RunMode
 from FastAutoAugment.nas import nas_utils
 
 if __name__ == '__main__':
@@ -15,9 +14,11 @@ if __name__ == '__main__':
 
     # create model and save it to yaml
     # NOTE: there is no search here as the models are just randomly sampled
-    model_desc = nas_utils.create_model_desc(conf_model_desc,
-                                             run_mode=RunMode.Search,
-                                             micro_builder=RandomMicroBuilder())
+    model_desc = nas_utils.create_macro_desc(conf_model_desc,
+                                             aux_tower=False,
+                                             template_model_desc=None)
+    macro_builder = RandomMicroBuilder()
+    macro_builder.build(model_desc, 0)
 
     # save model to location specified by eval config
     model_desc.save(final_desc_filename)

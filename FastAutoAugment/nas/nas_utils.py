@@ -2,7 +2,7 @@ from typing import Tuple, Optional
 
 from torch.utils.data.dataloader import DataLoader
 
-from .model_desc import RunMode, ModelDesc
+from .model_desc import ModelDesc
 from .macro_builder import MacroBuilder
 from .micro_builder import MicroBuilder
 from ..common.config import Config
@@ -11,57 +11,52 @@ from ..common.data import get_dataloaders
 from ..common.common import get_logger, expdir_abspath
 from ..common.check_point import CheckPoint
 
-
-def create_model_desc(conf_model_desc: Config, run_mode:RunMode,
-                 micro_builder: Optional[MicroBuilder]=None,
-                 template_model_desc:Optional[ModelDesc]=None) -> ModelDesc:
-    builder = MacroBuilder(conf_model_desc,
-                               run_mode=run_mode,
-                               template=template_model_desc)
-    model_desc = builder.model_desc()
-
+def build_micro(model_desc, micro_builder: MicroBuilder, search_iteration:int)->None:
     if micro_builder:
         micro_builder.register_ops()
-        # if nodes are already built by template, do not invoke micro builder
-        if template_model_desc is None:
-            micro_builder.build(model_desc)
+        micro_builder.build(model_desc, search_iteration)
+
+def create_macro_desc(conf_model_desc: Config, aux_tower:bool,
+                      template_model_desc:Optional[ModelDesc])->ModelDesc:
+    builder = MacroBuilder(conf_model_desc,
+                            aux_tower=aux_tower,
+                            template=template_model_desc)
+    model_desc = builder.model_desc()
     return model_desc
 
-def create_model(conf_model_desc: Config, device, run_mode:RunMode,
-                 micro_builder: Optional[MicroBuilder]=None,
-                 template_model_desc:Optional[ModelDesc]=None) -> Model:
-    model_desc = create_model_desc(conf_model_desc, run_mode,
-                                   micro_builder=micro_builder,
-                                   template_model_desc=template_model_desc)
-    return model_from_desc(model_desc, device)
 
-def model_and_checkpoint(conf_checkpoint:Config, resume:bool,
-        full_desc_filename:str, conf_model_desc: Config,
-        device, run_mode:RunMode, micro_builder: Optional[MicroBuilder]=None,
-        template_model_desc:Optional[ModelDesc]=None)\
-                     ->Tuple[Model, Optional[CheckPoint]]:
+def create_checkpoint(conf_checkpoint:Config, resume:bool)->Optional[CheckPoint]:
     logger = get_logger()
     checkpoint = CheckPoint(conf_checkpoint, resume) \
                  if conf_checkpoint is not None else None
-    if micro_builder:
-        micro_builder.register_ops()
     if checkpoint is None or checkpoint.is_empty():
         logger.info('Checkpoint not found or resume=False, starting from scratch')
+    return checkpoint
+
+def model_and_checkpoint(conf_checkpoint:Config, resume:bool,
+        full_desc_filename:str, conf_model_desc: Config,
+        device, aux_tower:bool, affine:bool, droppath:bool,
+        template_model_desc:ModelDesc) \
+                     ->Tuple[Model, Optional[CheckPoint]]:
+    logger = get_logger()
+    checkpoint = create_checkpoint(conf_checkpoint, resume)
+    if checkpoint is None or checkpoint.is_empty():
         # create model
-        model = create_model(conf_model_desc, device,
-                                    run_mode=RunMode.EvalTrain,
-                                    micro_builder=micro_builder,
-                                    template_model_desc=template_model_desc)
+        model_desc = create_macro_desc(conf_model_desc, aux_tower,
+                                       template_model_desc)
+        model = model_from_desc(model_desc, device,
+                            affine=affine, droppath=droppath)
         model.desc.save(full_desc_filename) # save copy of full model desc
     else:
         logger.info('Checkpoint found, loading last model')
         model_desc = ModelDesc.load(full_desc_filename)
-        model = model_from_desc(model_desc, device)
+        model = model_from_desc(model_desc, device,
+                                affine=affine, droppath=droppath)
 
     return model, checkpoint
 
-def model_from_desc(model_desc, device)->Model:
-    model = Model(model_desc)
+def model_from_desc(model_desc, device, affine:bool, droppath:bool)->Model:
+    model = Model(model_desc, affine=affine, droppath=droppath)
     # TODO: enable DataParallel
     # if data_parallel:
     #     model = nn.DataParallel(model).to(device)
