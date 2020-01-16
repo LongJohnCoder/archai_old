@@ -1,24 +1,19 @@
 __include__: 'darts_cifar.yaml' # defaults are loaded from this file
 
+
 nas:
   search:
-    iterations: 4
-
-
-# nas:
-#   search:
-#     model_desc:
-#       n_cells: 3 # as per paper
-#       n_nodes: 1 # start node for petridish, at each iteration we add one more
-#       out_nodes: 1 # start output is concatination of only node
-#     trainer:
-#       l1_alphas:  0.001   # as per paper
-#       epochs: 80 # as per paper
-#       lr_schedule:
-#         min_lr: 0.0 # as per paper
-#     loader:
-#       batch: 32 # as per paper
-#   eval:
-#     n_cells: 6 # as per paper
-#     init_ch_out: 32 # as per paper
-#     n_nodes: 1
+    iterations: 3
+    model_desc:
+      n_cells: 3 # as per paper
+    trainer:
+      l1_alphas:  0.001   # as per paper
+      epochs: 80 # as per paper
+      lr_schedule:
+        min_lr: 0.0 # as per paper
+    loader:
+      batch: 32 # as per paper
+  eval:
+    model_desc:
+      n_cells: 6 # as per paper
+      init_ch_out: 32 # as per paper
