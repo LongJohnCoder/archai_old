@@ -85,6 +85,20 @@
             ]
         },
         {
+            "name": "SearchPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_search.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "TestPetridish cifar10",
+            "type": "python",
+            "request": "launch",
+            "program": "${cwd}/scripts/petridish/cifar_eval.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "ToyE2EPetridish cifar10",
             "type": "python",
             "request": "launch",

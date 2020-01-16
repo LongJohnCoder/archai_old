@@ -65,6 +65,11 @@ class Cell(nn.Module, ABC, EnforceOverrides):
             o = sum(edge(states) for edge in node)
             states.append(o)
 
+        # TODO: review below with Dey
+        missing_nodes = self.desc.out_nodes - (len(states)-2)
+        for _ in range(0, missing_nodes):
+            states.append(states[-1])
+
         # TODO: Below assumes same shape except for channels but this won't
         #   happen for max pool etc shapes?
         return torch.cat(states[-self.desc.out_nodes:], dim=1)
