@@ -3,9 +3,6 @@ __include__: 'darts_cifar.yaml' # defaults are loaded from this file
 nas:
   search:
     iterations: 4
-    pretrain:
-      trainer:
-        epochs: 200
 
 
 # nas:
