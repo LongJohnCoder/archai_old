@@ -32,6 +32,8 @@ _ops_factory:Dict[str, Callable] = {
                             DilConv(op_desc, 5, op_desc.params['stride'], 4, 2, affine),
     'none':             lambda op_desc, alphas, affine:
                             Zero(op_desc),
+    'identity':         lambda op_desc, alphas, affine:
+                            Identity(),
     'sep_conv_7x7':     lambda op_desc, alphas, affine:
                             SepConv(op_desc, 7, 3, affine),
     'conv_7x1_1x7':     lambda op_desc, alphas, affine:
@@ -49,7 +51,9 @@ _ops_factory:Dict[str, Callable] = {
     'pool_cifar':       lambda op_desc, alphas, affine:
                             PoolCifar(),
     'pool_imagenet':    lambda op_desc, alphas, affine:
-                            PoolImagenet()
+                            PoolImagenet(),
+    'channel_adjust':   lambda op_desc, alphas, affine:
+                            ChannelAdjust(op_desc, affine)
 }
 
 class Op(nn.Module, ABC, EnforceOverrides):
@@ -416,6 +420,29 @@ class PoolCifar(Op):
     @overrides
     def can_drop_path(self)->bool:
         return False
+
+class ChannelAdjust(Op):
+    def __init__(self, op_desc, affine:bool)->None:
+        super().__init__()
+
+        conv_params:ConvMacroParams = op_desc.params['conv']
+        ch_in = conv_params.ch_in
+        ch_out = conv_params.ch_out
+
+        self._op = nn.Sequential(
+            nn.Conv2d(ch_in, ch_out, 1, # 1x1 conv
+                    stride=1, padding=0, bias=False),
+            nn.BatchNorm2d(ch_out, affine=affine)
+        )
+
+    @overrides
+    def forward(self, x):
+        return self._op(x)
+
+    @overrides
+    def can_drop_path(self)->bool:
+        return False
+
 
 class DropPath_(nn.Module):
     """Replace values in tensor by 0. with probability p

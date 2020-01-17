@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Callable, Iterable, List, Optional, Tuple
 from abc import ABC, abstractmethod
 
@@ -8,7 +9,7 @@ from torch import nn
 
 from ..common.common import get_logger
 from .dag_edge import DagEdge
-from .model_desc import AuxTowerDesc, CellDesc, EdgeDesc, NodeDesc
+from .model_desc import ConvMacroParams, CellDesc, OpDesc, NodeDesc
 from .operations import Op
 
 class Cell(nn.Module, ABC, EnforceOverrides):
@@ -25,6 +26,12 @@ class Cell(nn.Module, ABC, EnforceOverrides):
         self._dag =  Cell._create_dag(desc.nodes,
             affine=affine, droppath=droppath,
             alphas_cell=alphas_cell)
+
+        ch_out_sum = desc.node_ch_out * min(desc.out_nodes, len(desc.nodes))
+        post_op_desc =  OpDesc(desc.cell_post_op,
+            { 'conv': ConvMacroParams(ch_out_sum, desc.cell_ch_out)},
+            in_len=1, trainables=None, children=None)
+        self._post_op = Op.create(post_op_desc, affine=affine)
 
     @staticmethod
     def _create_dag(nodes_desc:List[NodeDesc],
@@ -62,17 +69,16 @@ class Cell(nn.Module, ABC, EnforceOverrides):
         for node in self._dag:
             # TODO: we should probably do average here otherwise output will
             #   blow up as number of primitives grows
+            # TODO: Current assumption is that each edge has k channel
+            #   output so node output is k channel as well
+            #   This won't allow for arbitrary edges.
             o = sum(edge(states) for edge in node)
             states.append(o)
 
-        # TODO: review below with Dey
-        missing_nodes = self.desc.out_nodes - (len(states)-2)
-        for _ in range(0, missing_nodes):
-            states.append(states[-1])
-
         # TODO: Below assumes same shape except for channels but this won't
-        #   happen for max pool etc shapes?
-        return torch.cat(states[-self.desc.out_nodes:], dim=1)
+        #   happen for max pool etc shapes? Also, remove hard coded 2.
+        concatinated = torch.cat(states[2:][-self.desc.out_nodes:], dim=1)
+        return self._post_op(concatinated)
 
     def finalize(self)->CellDesc:
         nodes_desc:List[NodeDesc] = []
@@ -90,12 +96,6 @@ class Cell(nn.Module, ABC, EnforceOverrides):
             edge_descs.extend((edr[0] for edr in edge_desc_ranks))
             nodes_desc.append(NodeDesc(edge_descs))
 
-        return CellDesc(cell_type=self.desc.cell_type,
-                        index=self.desc.index,
-                        nodes=nodes_desc,
-                        s0_op=self.desc.s0_op, s1_op=self.desc.s1_op,
-                        out_nodes=self.desc.out_nodes,
-                        node_ch_out=self.desc.node_ch_out,
-                        alphas_from=self.desc.alphas_from,
-                        max_final_edges=self.desc.max_final_edges)
-
+        res = deepcopy(self.desc)
+        res.nodes = nodes_desc
+        return res

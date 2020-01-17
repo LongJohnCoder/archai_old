@@ -215,14 +215,12 @@ class PetridishFinalOp(Op):
 
         # number of channels as we will concate output of ops
         ch_out_sum = conv_params.ch_out * len(self._ins)
-
-        # Apply 1x1 conv to reduce back channels to as specified by macro builder
-        self._conv = nn.Conv2d(ch_out_sum, conv_params.ch_out, 1,
-                                stride=1, padding=0, bias=False)
-        self._bn = nn.BatchNorm2d(conv_params.ch_out, affine=affine)
+        ch_adj_desc =  OpDesc('channel_adjust',
+            { 'conv': ConvMacroParams(ch_out_sum, conv_params.ch_out)},
+            in_len=1, trainables=None, children=None)
+        self._ch_adj = Op.create(ch_adj_desc, affine=affine)
 
     @overrides
     def forward(self, x:List[Tensor])->Tensor:
         res = torch.cat([op(x[i]) for op, i in zip(self._ops, self._ins)], dim=1)
-        res = self._conv(res)
-        return self._bn(res)
+        return self._ch_adj(res)

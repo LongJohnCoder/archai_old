@@ -4,7 +4,8 @@ __include__: 'darts_cifar.yaml' # defaults are loaded from this file
 nas:
   search:
     iterations: 4
-    # model_desc:
+    model_desc:
+      cell_post_op: 'channel_adjust'
     #   n_cells: 3 # as per paper
     trainer:
       l1_alphas:  0.001   # as per paper
