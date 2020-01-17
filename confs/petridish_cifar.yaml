@@ -8,7 +8,7 @@ nas:
     #   n_cells: 3 # as per paper
     trainer:
       l1_alphas:  0.001   # as per paper
-      epochs: 1 # as per paper
+      #epochs: 1 # as per paper
       # lr_schedule:
       #   min_lr: 0.0 # as per paper
     # loader:

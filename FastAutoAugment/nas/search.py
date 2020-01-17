@@ -88,11 +88,10 @@ def _pretrained_model_desc(conf_pretrain:Config, device,
     epochs = conf_trainer['epochs']
     # endregion
 
-    if search_model_desc.all_empty():
+    if epochs == 0 or search_model_desc.all_empty():
         # nothing to pretrain
         return search_model_desc
     elif search_model_desc.all_full():
-        assert epochs > 0
         model = nas_utils.model_from_desc(search_model_desc, device,
                                     affine=True, droppath=False)
 

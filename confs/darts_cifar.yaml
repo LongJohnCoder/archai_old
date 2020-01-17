@@ -97,7 +97,7 @@ nas:
       trainer:
         <<: *eval_trainer
         title: "search_pretrain"
-        epochs: 200 # number of epochs model will be trained before search
+        epochs: 0 # number of epochs model will be trained before search
         aux_weight: 0.0
       loader: *eval_loader
     model_desc:
