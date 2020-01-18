@@ -4,7 +4,7 @@ common:
   detect_anomaly: True # if True, PyTorch code will run 6X slower
 
 dataset: &dataset
-  max_batches: 2 # if >= 0 then only these many batches are generated (useful for debugging)
+  max_batches: 20 # if >= 0 then only these many batches are generated (useful for debugging)
 
 nas:
   search:
