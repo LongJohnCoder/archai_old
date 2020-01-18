@@ -15,7 +15,7 @@ common:
   # otherwise it should something like host:6379. Make sure to run on head node:
   # "ray start --head --redis-port=6379"
   redis: null
-  gpus: null # use GPU IDs specified here (comma separated), if null then use all GPUs
+  gpus: 0 # use GPU IDs specified here (comma separated), if null then use all GPUs
 
   smoke_test: False
   only_eval: False

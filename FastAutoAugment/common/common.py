@@ -162,7 +162,7 @@ def _setup_gpus(conf_common):
     logger = get_logger()
     if conf_common['gpus'] is not None:
         csv = str(conf_common['gpus'])
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(conf_common['gpus'])
+        #os.environ['CUDA_VISIBLE_DEVICES'] = str(conf_common['gpus'])
         torch.cuda.set_device(int(csv.split(',')[0]))
         logger.info('Only these GPUs will be used: {}'.format(
             conf_common['gpus']))
