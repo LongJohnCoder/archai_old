@@ -44,14 +44,13 @@ def model_and_checkpoint(conf_checkpoint:Config, resume:bool,
         # create model
         model_desc = create_macro_desc(conf_model_desc, aux_tower,
                                        template_model_desc)
-        model = model_from_desc(model_desc, device,
-                            affine=affine, droppath=droppath)
-        model.desc.save(full_desc_filename) # save copy of full model desc
+        model_desc.save(full_desc_filename) # save copy of full model desc
     else:
         logger.info('Checkpoint found, loading last model')
         model_desc = ModelDesc.load(full_desc_filename)
-        model = model_from_desc(model_desc, device,
-                                affine=affine, droppath=droppath)
+
+    model = model_from_desc(model_desc, device,
+                            affine=affine, droppath=droppath)
 
     return model, checkpoint
 

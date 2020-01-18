@@ -69,9 +69,7 @@
             "program": "${cwd}/scripts/petridish/cifar_search.py",
             "console": "integratedTerminal",
             "args": ["--config", "confs/cifar_toy.yaml",
-                "--config-defaults", "confs/petridish_cifar.yaml",
-                "--nas.search.iterations", "4",
-                "--nas.search.pretrain.trainer.epochs", "2"
+                "--config-defaults", "confs/petridish_cifar.yaml"
             ]
         },
         {

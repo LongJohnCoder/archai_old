@@ -14,6 +14,11 @@ Note: All classes in this file needs to be deepcopy compatible because
       descs are used as template to create copies by macro builder.
 """
 
+class ConvMacroParams:
+    """Holds parameters that may be altered by macro architecture"""
+
+    def __init__(self, ch_in:int, ch_out:int) -> None:
+        self.ch_in, self.ch_out = ch_in, ch_out
 
 class OpDesc:
     """Op description that is in each edge
@@ -78,16 +83,10 @@ class CellType(Enum):
     Regular = 'regular'
     Reduction  = 'reduction'
 
-class ConvMacroParams:
-    """Holds parameters that may be altered by macro architecture"""
-
-    def __init__(self, ch_in:int, ch_out:int) -> None:
-        self.ch_in, self.ch_out = ch_in, ch_out
-
 class CellDesc:
     def __init__(self, cell_type:CellType, index:int, nodes:List[NodeDesc],
             s0_op:OpDesc, s1_op:OpDesc, out_nodes:int, node_ch_out:int,
-            alphas_from:int, max_final_edges:int)->None:
+            alphas_from:int, max_final_edges:int, cell_post_op:str)->None:
         assert s0_op.params['conv'].ch_out == s1_op.params['conv'].ch_out
         assert s0_op.params['conv'].ch_out == node_ch_out
 
@@ -100,6 +99,7 @@ class CellDesc:
         self.max_final_edges = max_final_edges
         self.cell_ch_out = out_nodes * node_ch_out
         self.conv_params = ConvMacroParams(node_ch_out, node_ch_out)
+        self.cell_post_op = cell_post_op
 
     def all_empty(self)->bool:
         return len(self.nodes)==0 or all((len(n.edges)==0 for n in self.nodes))

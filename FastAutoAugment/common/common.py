@@ -53,7 +53,11 @@ def common_init(config_filepath: Optional[str]=None,
     if datadir and logdir:
         # prepend so if supplied from outside it takes back seat
         param_args = ['--nas.eval.loader.dataset.dataroot', datadir,
-                       '--common.logdir', logdir] + param_args
+                      '--nas.search.loader.dataset.dataroot', datadir,
+                      '--common.logdir', logdir] + param_args
+        print(f'Obtained PT_DATA_DIR {datadir}')
+        print(f'Obtained PT_OUTPUT_DIR {logdir}')
+        
 
     conf = Config(config_filepath=config_filepath,
                   param_args=param_args,

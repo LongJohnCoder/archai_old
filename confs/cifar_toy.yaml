@@ -13,7 +13,7 @@ nas:
     model_desc:
       n_cells: 3 # number of cells
       n_nodes: 3 # number of nodes in a cell
-      out_nodes: 1 # last n nodes to concate output from
+      out_nodes: 2 # last n nodes to concate output from
     loader:
       batch: 32
       dataset: *dataset
@@ -26,7 +26,7 @@ nas:
     model_desc:
       n_cells: 3 # number of cells
       n_nodes: 3 # number of nodes in a cell
-      out_nodes: 1 # last n nodes to concate output from
+      out_nodes: 2 # last n nodes to concate output from
     loader:
       batch: 32
       dataset: *dataset

@@ -46,6 +46,7 @@ nas:
       aux_weight: &eval_aux_weight 0.4 # weight for loss from auxiliary towers in test time arch
       dataset: *dataset
       max_final_edges: 2 # max edge that can be in final arch per node
+      cell_post_op: 'identity'
     loader: &eval_loader
       aug: "" # additional augmentations to use
       cutout: 16 # cutout length, use cutout augmentation when > 0
@@ -97,7 +98,7 @@ nas:
       trainer:
         <<: *eval_trainer
         title: "search_pretrain"
-        epochs: 200 # number of epochs model will be trained before search
+        epochs: 0 # number of epochs model will be trained before search
         aux_weight: 0.0
       loader: *eval_loader
     model_desc:
@@ -109,6 +110,7 @@ nas:
       aux_weight: &search_aux_weight 0.0 # weight for loss from auxiliary towers in test time arch
       dataset: *dataset
       max_final_edges: 2 # max edge that can be in final arch per node
+      cell_post_op: 'identity'
     loader:
       aug: "" # additional augmentations to use
       cutout: 0 # cutout length, use cutout augmentation when > 0

@@ -23,6 +23,7 @@ class MacroBuilder(EnforceOverrides):
         self.stem_multiplier = conf_model_desc['stem_multiplier']
         self.aux_weight = conf_model_desc['aux_weight']
         self.max_final_edges = conf_model_desc['max_final_edges']
+        self.cell_post_op = conf_model_desc['cell_post_op']
         # endregion
 
         self.aux_tower = aux_tower
@@ -99,7 +100,7 @@ class MacroBuilder(EnforceOverrides):
                 s0_op=s0_op, s1_op=s1_op,
                 out_nodes=self.out_nodes, node_ch_out=ch_out,
                 alphas_from=alphas_from,
-                max_final_edges=max_final_edges
+                max_final_edges=max_final_edges, cell_post_op=self.cell_post_op
             ))
             # add any nodes from the template to the just added cell
             self._add_template_nodes(cell_descs[-1])
