@@ -128,7 +128,7 @@ nas:
       aux_weight: *search_aux_weight
       drop_path_prob: 0.0 # probability that given edge will be dropped
       grad_clip: 5.0 # grads above this value is clipped
-      logger_freq: 2 # after every N updates dump loss and other metrics in logger
+      logger_freq: 20 # after every N updates dump loss and other metrics in logger
       title: "search_train"
       epochs: 50
       # additional vals for the derived class
