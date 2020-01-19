@@ -57,11 +57,11 @@ class Model(nn.Module):
     def summary(self)->dict:
         return {
             'cell_count': len(self._cells),
+            #'cell_params': [utils.param_size(c) for c in self._cells]
             'params': utils.param_size(self),
             'alphas_p': len(list(a for a in self.alphas())),
             'alphas': np.sum(a.numel() for a in self.alphas()),
             'ops': np.sum(len(n.edges) for c in self.desc.cell_descs for n in c.nodes),
-            'cell_params': [utils.param_size(c) for c in self._cells]
         }
 
     def alphas(self)->Iterable[nn.Parameter]:
