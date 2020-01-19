@@ -55,7 +55,7 @@ def search_arch(conf_search:Config, micro_builder:MicroBuilder,
         search_model_desc.save(full_desc_filename)
 
         model = nas_utils.model_from_desc(search_model_desc, device,
-                                         affine=False, droppath=False)
+                                         droppath=False, affine=False)
 
         # get data
         train_dl, val_dl, _ = nas_utils.get_data(conf_loader)
@@ -93,7 +93,7 @@ def _pretrained_model_desc(conf_pretrain:Config, device,
         return search_model_desc
     elif search_model_desc.all_full():
         model = nas_utils.model_from_desc(search_model_desc, device,
-                                    affine=True, droppath=False)
+                                        droppath=False, affine=True)
 
         # get data
         train_dl, _, test_dl = nas_utils.get_data(conf_loader)

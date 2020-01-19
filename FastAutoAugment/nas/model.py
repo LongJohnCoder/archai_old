@@ -1,5 +1,7 @@
 from typing import Iterable, Tuple, Optional, Any
 from collections import OrderedDict
+import numpy as np
+import yaml
 
 import torch
 from torch import nn, Tensor
@@ -9,12 +11,12 @@ from overrides import overrides
 
 from .cell import Cell
 from .operations import Op, DropPath_
-from .model_desc import ModelDesc, AuxTowerDesc
+from .model_desc import ModelDesc, AuxTowerDesc, CellDesc
 from ..common.common import get_logger, expdir_abspath
 from ..common import utils
 
 class Model(nn.Module):
-    def __init__(self, model_desc:ModelDesc, affine:bool, droppath:bool):
+    def __init__(self, model_desc:ModelDesc, droppath:bool, affine:bool):
         super().__init__()
 
         logger = get_logger()
@@ -28,14 +30,7 @@ class Model(nn.Module):
 
         for i, (cell_desc, aux_tower_desc) in \
                 enumerate(zip(model_desc.cell_descs, model_desc.aux_tower_descs)):
-            alphas_cell = None if cell_desc.alphas_from==i  \
-                               else self._cells[cell_desc.alphas_from]
-            cell = Cell(cell_desc,
-                        affine=affine, droppath=droppath,
-                        alphas_cell=alphas_cell)
-            self._cells.append(cell)
-            self._aux_towers.append(AuxTower(aux_tower_desc, pool_stride=3) \
-                                    if aux_tower_desc else None)
+            self._build_cell(cell_desc, aux_tower_desc, droppath, affine)
 
         # adaptive pooling output size to 1x1
         self.final_pooling = Op.create(model_desc.pool_op, affine=affine)
@@ -44,7 +39,30 @@ class Model(nn.Module):
         self.linear = nn.Linear(model_desc.cell_descs[-1].cell_ch_out,
                                 model_desc.n_classes)
 
-        logger.info(f"Alphas count = {len(set(a for a in self.alphas()))}")
+        logger.info(f'{yaml.dump(self.summary())}')
+
+    def _build_cell(self, cell_desc:CellDesc,
+                    aux_tower_desc:Optional[AuxTowerDesc],
+                    droppath:bool, affine:bool)->None:
+        assert cell_desc.index == len(self._cells)
+        alphas_cell = None if cell_desc.alphas_from==cell_desc.index  \
+                            else self._cells[cell_desc.alphas_from]
+        cell = Cell(cell_desc,
+                    affine=affine, droppath=droppath,
+                    alphas_cell=alphas_cell)
+        self._cells.append(cell)
+        self._aux_towers.append(AuxTower(aux_tower_desc, pool_stride=3) \
+                                if aux_tower_desc else None)
+
+    def summary(self)->dict:
+        return {
+            'cell_count': len(self._cells),
+            'params': utils.param_size(self),
+            'alphas_p': len(list(a for a in self.alphas())),
+            'alphas': np.sum(a.numel() for a in self.alphas()),
+            'ops': np.sum(len(n.edges) for c in self.desc.cell_descs for n in c.nodes),
+            'cell_params': [utils.param_size(c) for c in self._cells]
+        }
 
     def alphas(self)->Iterable[nn.Parameter]:
         for cell in self._cells:

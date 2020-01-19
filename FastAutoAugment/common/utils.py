@@ -76,9 +76,9 @@ class Cutout:
         return img
 
 
-def param_size(model):
+def param_size(module:nn.Module):
     """count all parameters excluding auxiliary"""
-    return np.sum(v.numel() for name, v in model.named_parameters() \
+    return np.sum(v.numel() for name, v in module.named_parameters() \
         if "auxiliary" not in name)
 
 
@@ -147,7 +147,7 @@ def create_optimizer(conf_opt:Config, params)->Optimizer:
             betas=conf_opt['betas'],
             weight_decay=conf_opt['decay'])
     elif conf_opt['type'] == 'cocob':
-        return CocobBackprop(params, 
+        return CocobBackprop(params,
             alpha=conf_opt['alpha'])
     else:
         raise ValueError('invalid optimizer type=%s' % conf_opt['type'])
