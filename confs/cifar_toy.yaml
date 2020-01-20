@@ -15,7 +15,8 @@ nas:
       n_nodes: 3 # number of nodes in a cell
       out_nodes: 2 # last n nodes to concate output from
     loader:
-      batch: 32
+      train_batch: 32
+      test_batch: 32
       dataset: *dataset
     trainer:
       epochs: 2
@@ -28,7 +29,8 @@ nas:
       n_nodes: 3 # number of nodes in a cell
       out_nodes: 2 # last n nodes to concate output from
     loader:
-      batch: 32
+      train_batch: 32
+      test_batch: 32
       dataset: *dataset
     trainer:
       epochs: 2
