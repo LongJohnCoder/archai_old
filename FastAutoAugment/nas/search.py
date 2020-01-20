@@ -10,6 +10,7 @@ from .arch_trainer import ArchTrainer
 from . import nas_utils
 from .model_desc import ModelDesc
 from ..common.trainer import Trainer
+from ..common import data
 
 def search_arch(conf_search:Config, micro_builder:MicroBuilder,
                 trainer_class:Type[ArchTrainer])->None:
@@ -58,7 +59,7 @@ def search_arch(conf_search:Config, micro_builder:MicroBuilder,
                                          droppath=False, affine=False)
 
         # get data
-        train_dl, val_dl, _ = nas_utils.get_data(conf_loader)
+        train_dl, val_dl, _ = data.get_data(conf_loader)
         assert train_dl is not None
 
         # search arch
@@ -96,10 +97,11 @@ def _pretrained_model_desc(conf_pretrain:Config, device,
                                         droppath=False, affine=True)
 
         # get data
-        train_dl, _, test_dl = nas_utils.get_data(conf_loader)
+        train_dl, _, test_dl = data.get_data(conf_loader)
         assert train_dl is not None and test_dl is not None
 
-        trainer = Trainer(conf_trainer, model, device, check_point=None)
+        trainer = Trainer(conf_trainer, model, device,
+            check_point=None, aux_tower=model.desc.has_aux_tower())
         trainer.fit(train_dl, test_dl)
 
         # save metrics

@@ -15,13 +15,15 @@ from . import utils
 class Tester(EnforceOverrides):
     """Evaluate model on given data"""
 
-    def __init__(self, conf_eval:Config, model:nn.Module, device, epochs:int=1)->None:
+    def __init__(self, conf_eval:Config, model:nn.Module, device,
+                 aux_tower:bool, epochs:int=1)->None:
         self._title = conf_eval['title']
         self._logger_freq = conf_eval['logger_freq']
         conf_lossfn = conf_eval['lossfn']
 
         self.model = model
         self.device = device
+        self._aux_tower = aux_tower
         self._lossfn = utils.get_lossfn(conf_lossfn).to(device)
         self._metrics = self._create_metrics(epochs)
 
@@ -43,7 +45,9 @@ class Tester(EnforceOverrides):
                 x, y = x.to(self.device), y.to(self.device, non_blocking=True)
 
                 self.pre_step(x, y, self._metrics)
-                logits, *_ = self.model(x) # ignore aux logits in test mode
+                logits = self.model(x)
+                if self._aux_tower:
+                    logits = logits[0]
                 loss = self._lossfn(logits, y)
                 self.post_step(x, y, logits, loss, steps, self._metrics)
         self._metrics.post_epoch()

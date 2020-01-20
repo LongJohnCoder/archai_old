@@ -118,6 +118,9 @@ class ModelDesc:
         self.cell_descs = cell_descs
         self.aux_tower_descs = aux_tower_descs
 
+    def has_aux_tower(self)->bool:
+        return any(self.aux_tower_descs)
+
     def all_empty(self)->bool:
         return len(self.cell_descs)==0 or \
              all((c.all_empty() for c in self.cell_descs))

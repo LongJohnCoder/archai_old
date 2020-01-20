@@ -17,12 +17,13 @@ from .apex_utils import Amp
 
 class Trainer(EnforceOverrides):
     def __init__(self, conf_train:Config, model:nn.Module, device,
-                 check_point:Optional[CheckPoint])->None:
+                 check_point:Optional[CheckPoint], aux_tower:bool)->None:
         logger = get_logger()
 
         # region config vars
         conf_lossfn = conf_train['lossfn']
         self._apex = conf_train['apex']
+        self._aux_tower = aux_tower
         self._aux_weight = conf_train['aux_weight']
         self._grad_clip = conf_train['grad_clip']
         self._drop_path_prob = conf_train['drop_path_prob']
@@ -39,7 +40,8 @@ class Trainer(EnforceOverrides):
         self.model = model
         self.device = device
         self._lossfn = utils.get_lossfn(conf_lossfn).to(device)
-        self._tester = Tester(conf_validation, model, device, epochs=self._epochs) \
+        self._tester = Tester(conf_validation, model, device,
+                              aux_tower=aux_tower, epochs=self._epochs) \
                         if conf_validation else None
         self._metrics = self._create_metrics(self._epochs)
         self._metrics.custom['param_byte_size'] = utils.param_size(self.model)
@@ -195,10 +197,10 @@ class Trainer(EnforceOverrides):
 
             self._optim.zero_grad()
 
-            if self._aux_weight > 0.0:
-                logits, aux_logits = self.model(x)
-            else:
-                (logits, *_), aux_logits = self.model(x), None
+            logits, aux_logits = self.model(x), None
+            if self._aux_tower:
+                assert isinstance(logits, Tuple) and len(logits) >=2
+                logits, aux_logits = logits[0], logits[1]
             loss = self.compute_loss(self._lossfn, x, y, logits,
                                     self._aux_weight, aux_logits)
 
@@ -216,12 +218,7 @@ class Trainer(EnforceOverrides):
     def compute_loss(self, lossfn:Callable,
                      x:Tensor, y:Tensor, logits:Tensor,
                      aux_weight:float, aux_logits:Optional[Tensor])->Tensor:
-        logger = get_logger()
         loss = lossfn(logits, y)
-
-        assert (aux_weight > 0.0 and aux_logits is not None) or \
-            (aux_weight == 0.0 and aux_logits is None)
-
         if aux_weight > 0.0 and  aux_logits is not None:
             loss += aux_weight * lossfn(aux_logits, y)
         return loss

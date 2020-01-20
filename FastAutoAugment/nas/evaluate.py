@@ -5,6 +5,7 @@ import torch
 from ..common.trainer import Trainer
 from ..common.config import Config
 from ..common.common import get_logger
+from ..common import data
 from .model_desc import ModelDesc
 from .micro_builder import MicroBuilder
 from . import nas_utils
@@ -38,11 +39,12 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
                                 template_model_desc=template_model_desc)
 
     # get data
-    train_dl, _, test_dl = nas_utils.get_data(conf_loader)
+    train_dl, _, test_dl = data.get_data(conf_loader)
     assert train_dl is not None and test_dl is not None
 
 
-    trainer = Trainer(conf_train, model, device, checkpoint)
+    trainer = Trainer(conf_train, model, device,
+                      checkpoint, model.desc.has_aux_tower())
     trainer.fit(train_dl, test_dl)
 
     # save metrics

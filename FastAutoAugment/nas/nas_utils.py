@@ -7,8 +7,7 @@ from .macro_builder import MacroBuilder
 from .micro_builder import MicroBuilder
 from ..common.config import Config
 from .model import Model
-from ..common.data import get_dataloaders
-from ..common.common import get_logger, expdir_abspath
+from ..common.common import get_logger
 from ..common.check_point import CheckPoint
 
 def build_micro(model_desc, micro_builder: MicroBuilder, search_iteration:int)->None:
@@ -63,30 +62,3 @@ def model_from_desc(model_desc, device, droppath:bool, affine:bool)->Model:
     model = model.to(device)
     return model
 
-def get_data(conf_loader:Config)\
-        -> Tuple[Optional[DataLoader], Optional[DataLoader], Optional[DataLoader]]:
-    # region conf vars
-    # dataset
-    conf_data = conf_loader['dataset']
-    ds_name = conf_data['name']
-    max_batches = conf_data['max_batches']
-    dataroot = conf_data['dataroot']
-
-    aug = conf_loader['aug']
-    cutout = conf_loader['cutout']
-    val_ratio = conf_loader['val_ratio']
-    batch_size = conf_loader['batch']
-    val_fold = conf_loader['val_fold']
-    n_workers = conf_loader['n_workers']
-    horovod = conf_loader['horovod']
-    load_train = conf_loader['load_train']
-    load_test = conf_loader['load_test']
-    # endregion
-
-    train_dl, val_dl, test_dl, *_ = get_dataloaders(
-        ds_name, batch_size, dataroot,
-        aug=aug, cutout=cutout, load_train=load_train, load_test=load_test,
-        val_ratio=val_ratio, val_fold=val_fold, horovod=horovod,
-        n_workers=n_workers, max_batches=max_batches)
-    assert train_dl is not None
-    return train_dl, val_dl, test_dl

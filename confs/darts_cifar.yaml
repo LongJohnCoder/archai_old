@@ -50,13 +50,15 @@ nas:
     loader: &eval_loader
       aug: "" # additional augmentations to use
       cutout: 16 # cutout length, use cutout augmentation when > 0
-      batch: 96
+      load_train: True # load train split of dataset
+      train_batch: 96
+      train_workers: null # if null then gpu_count*4
+      load_test: True # load test split of dataset
+      test_batch: 2048
+      test_workers: null # if null then gpu_count*4
       val_ratio: 0.0 #split portion for test set, 0 to 1
       val_fold: 0 #Fold number to use (0 to 4)
       cv_num: 5 # total number of folds available
-      n_workers: null # if null then gpu_count*4
-      load_train: True # load train split of dataset
-      load_test: True # load test split of dataset
       horovod: *horovod
       dataset: *dataset
     trainer: &eval_trainer
@@ -114,13 +116,15 @@ nas:
     loader:
       aug: "" # additional augmentations to use
       cutout: 0 # cutout length, use cutout augmentation when > 0
-      batch: 64
+      load_train: True # load train split of dataset
+      train_batch: 64
+      train_workers: null # if null then gpu_count*4
+      load_test: False # load test split of dataset
+      test_batch: 2048
+      test_workers: null # if null then gpu_count*4
       val_ratio: 0.5 #split portion for test set, 0 to 1
       val_fold: 0 #Fold number to use (0 to 4)
       cv_num: 5 # total number of folds available
-      n_workers: null # if null then gpu_count*4
-      load_train: True # load train split of dataset
-      load_test: False # load test split of dataset
       horovod: *horovod
       dataset: *dataset
     trainer:
@@ -167,12 +171,16 @@ autoaug:
   loader:
     aug: "" # additional augmentations to use
     cutout: 16 # cutout length, use cutout augmentation when > 0
-    batch: 64
     epochs: 50
+    load_train: True # load train split of dataset
+    train_batch: 64
+    train_workers: null # if null then gpu_count*4
+    load_test: True # load test split of dataset
+    test_batch: 2048
+    test_workers: null # if null then gpu_count*4
     val_ratio: 0.4 #split portion for test set, 0 to 1
     val_fold: 0 #Fold number to use (0 to 4)
     cv_num: 5 # total number of folds available
-    n_workers: null # if null then gpu_count*4
     horovod: *horovod
     dataset: *dataset
   optimizer:

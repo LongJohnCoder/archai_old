@@ -18,13 +18,62 @@ from .augmentations import *
 from ..common.common import get_logger
 from .common import utils
 from .imagenet import ImageNet
+from ..common.config import Config
 
-DatasetLike = Union[Dataset, Subset, ConcatDataset]
+class LimitDataset(Dataset):
+    def __init__(self, dataset, n):
+        self.dataset = dataset
+        self.n = n
+        if hasattr(dataset, 'targets'):
+            self.targets = dataset.targets[:n]
+
+    def __len__(self):
+        return self.n
+
+    def __getitem__(self, i):
+        return self.dataset[i]
+
+DatasetLike = Union[Dataset, Subset, ConcatDataset, LimitDataset]
 
 
-def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
-    load_train:bool, load_test:bool, val_ratio:float, val_fold=0,
-    horovod=False, target_lb=-1, n_workers:int=None, max_batches:int=-1) \
+def get_data(conf_loader:Config)\
+        -> Tuple[Optional[DataLoader], Optional[DataLoader], Optional[DataLoader]]:
+    # region conf vars
+    # dataset
+    conf_data = conf_loader['dataset']
+    ds_name = conf_data['name']
+    max_batches = conf_data['max_batches']
+    dataroot = conf_data['dataroot']
+
+    aug = conf_loader['aug']
+    cutout = conf_loader['cutout']
+    val_ratio = conf_loader['val_ratio']
+    val_fold = conf_loader['val_fold']
+    horovod = conf_loader['horovod']
+    load_train = conf_loader['load_train']
+    train_batch = conf_loader['train_batch']
+    train_workers = conf_loader['train_workers']
+    load_test = conf_loader['load_test']
+    test_batch = conf_loader['test_batch']
+    test_workers = conf_loader['test_workers']
+    # endregion
+
+    train_dl, val_dl, test_dl, *_ = get_dataloaders(dataroot, ds_name,
+        load_train=load_train, train_batch_size=train_batch,
+        load_test=load_test, test_batch_size=test_batch,
+        aug=aug, cutout=cutout,  val_ratio=val_ratio, val_fold=val_fold,
+        train_workers=train_workers, test_workers=test_workers, horovod=horovod,
+        max_batches=max_batches)
+
+    assert train_dl is not None
+    return train_dl, val_dl, test_dl
+
+def get_dataloaders(dataroot:str, dataset:str,
+    load_train:bool, train_batch_size:int,
+    load_test:bool, test_batch_size:int,
+    aug, cutout:int, val_ratio:float, val_fold=0,
+    train_workers:Optional[int]=None, test_workers:Optional[int]=None,
+    horovod=False, target_lb=-1, max_batches:int=-1) \
         -> Tuple[Optional[DataLoader], Optional[DataLoader],
                  Optional[DataLoader], Optional[Sampler]]:
 
@@ -32,18 +81,21 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
 
     # if debugging in vscode, workers > 0 gets termination
     if utils.is_debugging():
-        n_workers = 0
+        train_workers = test_workers = 0
         logger.warn('Debugger is detected, lower performance settings may be used.')
-    else: # use simple heuristic to auto select number of workers
-        # TODO: for multi-gpu, use 4 * gpus used
-        n_workers = 4 if n_workers is None else n_workers
-    logger.info('n_workers = {}'.format(n_workers))
+    if train_workers is None:
+        train_workers = torch.cuda.device_count() * 4
+    if test_workers is None:
+        test_workers = torch.cuda.device_count() * 4
+    logger.info(f'train_workers = {train_workers}, test_workers={test_workers}')
 
     # get usual random crop/flip transforms
     transform_train, transform_test = get_transforms(dataset, aug, cutout)
 
     trainset, testset = _get_datasets(dataset, dataroot,
-        load_train, load_test, transform_train, transform_test)
+        load_train, load_test, transform_train, transform_test,
+        train_max_size=max_batches*train_batch_size,
+        test_max_size=max_batches*test_batch_size)
 
     # TODO: below will never get executed, set_preaug does not exist in PyTorch
     # if total_aug is not None and augs is not None:
@@ -53,31 +105,23 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
     trainloader, validloader, testloader, train_sampler = None, None, None, None
 
     if trainset:
-        if max_batches >= 0:
-            max_size = max_batches*batch_size
-            logger.warn('Trainset trimmed to max_batches = {}'.format(max_size))
-            trainset = LimitDataset(trainset, max_size)
         # sample validation set from trainset if cv_ration > 0
         train_sampler, valid_sampler = _get_train_sampler(val_ratio, val_fold,
             trainset, horovod, target_lb)
         trainloader = torch.utils.data.DataLoader(trainset,
-            batch_size=batch_size, shuffle=True if train_sampler is None else False,
-            num_workers=n_workers, pin_memory=True,
+            batch_size=train_batch_size, shuffle=True if train_sampler is None else False,
+            num_workers=train_workers, pin_memory=True,
             sampler=train_sampler, drop_last=True)
         if train_sampler is not None:
             validloader = torch.utils.data.DataLoader(trainset,
-                batch_size=batch_size, shuffle=False,
-                num_workers=n_workers, pin_memory=True, #TODO: set n_workers per ratio?
+                batch_size=train_batch_size, shuffle=False,
+                num_workers=train_workers, pin_memory=True, #TODO: set n_workers per ratio?
                 sampler=valid_sampler, drop_last=False)
         # else validloader is left as None
     if testset:
-        if max_batches >= 0:
-            max_size = max_batches*batch_size
-            logger.warn('Testset trimmed to max_batches = {}'.format(max_size))
-            testset = LimitDataset(testset, max_batches*batch_size)
         testloader = torch.utils.data.DataLoader(testset,
-            batch_size=batch_size, shuffle=False,
-            num_workers=n_workers, pin_memory=True,
+            batch_size=test_batch_size, shuffle=False,
+            num_workers=test_workers, pin_memory=True,
             sampler=None, drop_last=False
     )
 
@@ -201,22 +245,8 @@ class SubsetSampler(Sampler):
     def __len__(self):
         return len(self.indices)
 
-class LimitDataset(Dataset):
-    def __init__(self, dataset, n):
-        self.dataset = dataset
-        self.n = n
-        if hasattr(dataset, 'targets'):
-            self.targets = dataset.targets[:n]
-
-    def __len__(self):
-        return self.n
-
-    def __getitem__(self, i):
-        return self.dataset[i]
-
-
 def _get_datasets(dataset, dataroot, load_train:bool, load_test:bool,
-        transform_train, transform_test)\
+        transform_train, transform_test, train_max_size:int, test_max_size:int)\
             ->Tuple[DatasetLike, DatasetLike]:
     logger = get_logger()
     trainset, testset = None, None
@@ -343,6 +373,13 @@ def _get_datasets(dataset, dataroot, load_train:bool, load_test:bool,
             testset = Subset(testset, test_idx)
     else:
         raise ValueError('invalid dataset name=%s' % dataset)
+
+    if train_max_size > 0:
+        logger.warn('Trainset trimmed to max_batches = {}'.format(train_max_size))
+        trainset = LimitDataset(trainset, train_max_size)
+    if test_max_size > 0:
+        logger.warn('Testset trimmed to max_batches = {}'.format(test_max_size))
+        testset = LimitDataset(testset, test_max_size)
 
     return  trainset, testset
 
