@@ -1,8 +1,12 @@
 
 import  os
-from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional, Tuple
+from typing import Iterable, Type, MutableMapping, Mapping, Any, Optional, Tuple, List
 import  numpy as np
 import  shutil
+import logging
+import csv
+from collections import OrderedDict
+import sys
 
 import  torch
 from torch import nn
@@ -12,6 +16,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.nn.modules.loss import _WeightedLoss, _Loss
 import torch.nn.functional as F
+import torch.backends.cudnn as cudnn
 
 from .config import Config
 from .cocob import CocobBackprop
@@ -342,3 +347,66 @@ def deep_comp(o1:Any, o2:Any)->bool:
 #         return torch.mean(torch.sum(-target * logsoftmax(input), dim=1))
 #     else:
 #         return torch.sum(torch.sum(-target * logsoftmax(input), dim=1))
+
+
+def is_debugging()->bool:
+    return 'pydevd' in sys.modules # works for vscode
+
+def full_path(path:str)->str:
+    path = os.path.expandvars(path)
+    path = os.path.expanduser(path)
+    return os.path.abspath(path)
+
+def setup_logging(filepath:Optional[str]=None,
+                  name:Optional[str]=None, level=logging.INFO)->logging.Logger:
+    logger = logging.getLogger(name)
+    logger.handlers.clear()
+    logger.setLevel(level)
+    ch = logging.StreamHandler()
+    ch.setLevel(level)
+    formatter = logging.Formatter('[%(asctime)s][%(levelname)s] %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    logger.propagate = False # otherwise root logger prints things again
+
+    if filepath:
+        fh = logging.FileHandler(filename=full_path(filepath))
+        fh.setLevel(level)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    return logger
+
+def setup_cuda(seed):
+    # setup cuda
+    cudnn.enabled = True
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    cudnn.benchmark = True
+    #cudnn.deterministic = False
+    # torch.cuda.empty_cache()
+    # torch.cuda.synchronize()
+
+def cuda_device_names()->str:
+    return ', '.join([torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])
+
+def append_csv_file(filepath:str, new_row:List[Tuple[str, Any]], delimiter='\t'):
+    fieldnames, rows = [], []
+    if os.path.exists(filepath):
+        with open(filepath, 'r') as f:
+            dr = csv.DictReader(f, delimiter=delimiter)
+            fieldnames = dr.fieldnames
+            rows = [row for row in dr.reader]
+    if fieldnames is None:
+        fieldnames = []
+
+    new_fieldnames = OrderedDict([(fn, None) for fn, v in new_row])
+    for fn in fieldnames:
+        new_fieldnames[fn]=None
+
+    with open(filepath, 'w') as f:
+        dr = csv.DictWriter(f, fieldnames=new_fieldnames.keys(), delimiter=delimiter)
+        dr.writeheader()
+        for row in rows:
+            dr.writerow(dict((k,v) for k,v in zip(fieldnames, row)))
+        dr.writerow(OrderedDict(new_row))

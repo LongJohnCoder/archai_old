@@ -6,12 +6,11 @@ from typing import List, Iterable, Union, Optional
 import yaml
 
 import torch
-import torch.backends.cudnn as cudnn
 from torch.utils.tensorboard import SummaryWriter
 
 from .config import Config
 from .stopwatch import StopWatch
-
+from . import utils
 
 class SummaryWriterDummy:
     def __init__(self, log_dir):
@@ -20,22 +19,33 @@ class SummaryWriterDummy:
     def add_scalar(self, *args, **kwargs):
         pass
 
-
 SummaryWriterAny = Union[SummaryWriterDummy, SummaryWriter]
-
 _logger: Optional[logging.Logger] = None
 _tb_writer: SummaryWriterAny = None
-_config_common = None
 
-def get_config_common():
-    global _config_common
-    return _config_common
+
+def get_conf()->Config:
+    return Config.get()
+
+def get_conf_common()->Config:
+    return get_conf()['common']
+
+def get_conf_dataset()->Config:
+    return get_conf()['dataset']
+
+def get_experiment_name()->str:
+    return get_conf_common()['experiment_name']
+
+def get_expdir()->Optional[str]:
+    return get_conf_common()['expdir']
 
 def get_logger() -> logging.Logger:
     global _logger
     if _logger is None:
         raise RuntimeError('get_logger call made before logger was setup!')
     return _logger
+
+
 
 def get_tb_writer() -> SummaryWriterAny:
     global _tb_writer
@@ -57,39 +67,41 @@ def common_init(config_filepath: Optional[str]=None,
                       '--common.logdir', logdir] + param_args
         print(f'Obtained PT_DATA_DIR {datadir}')
         print(f'Obtained PT_OUTPUT_DIR {logdir}')
-        
+
 
     conf = Config(config_filepath=config_filepath,
                   param_args=param_args,
                   use_args=use_args)
-
     Config.set(conf)
 
     sw = StopWatch()
     StopWatch.set(sw)
 
-    global _config_common
-    _config_common = conf['common']
-    experiment_name = _config_common['experiment_name']
-    _setup_logger(experiment_name)
-    conf_data = conf['dataset']
-    _setup_dirs(_config_common, conf_data, experiment_name)
-    _setup_gpus(_config_common)
+    expdir = _setup_dirs()
+    _setup_logger()
 
-    expdir = _config_common['expdir']
+    logger = get_logger()
+    logger.info(f'expdir: {expdir}')
+
+    _setup_gpus()
+
     if expdir:
         # copy net config to experiment folder for reference
         with open(os.path.join(expdir, 'full_config.yaml'), 'w') as f:
             yaml.dump(conf, f, default_flow_style=False)
 
     global _tb_writer
-    _tb_writer = _create_tb_writer(_config_common, is_master)
+    _tb_writer = _create_tb_writer(is_master)
 
     return conf
 
 def expdir_abspath(subpath:Optional[str], ensure_exists=False)->Optional[str]:
-    expdir = _config_common['expdir']
-    if not subpath or not expdir:
+    """Returns full path for given relative path within experiment directory.
+       If experiment directory is not setup then None is returned.
+    """
+
+    expdir = get_expdir()
+    if not expdir or not subpath:
         return None
     if subpath:
         expdir = os.path.join(expdir, subpath)
@@ -98,68 +110,56 @@ def expdir_abspath(subpath:Optional[str], ensure_exists=False)->Optional[str]:
 
     return expdir
 
-def _create_tb_writer(conf_common: Config, is_master=True)\
-        -> SummaryWriterAny:
-    expdir = conf_common['expdir']
+def _create_tb_writer(is_master=True)-> SummaryWriterAny:
+    tbdir = expdir_abspath('tb')
+    conf_common = get_conf_common()
+
     WriterClass = SummaryWriterDummy if not conf_common['enable_tb'] or \
                                         not is_master or \
-                                        not expdir \
+                                        not tbdir \
         else SummaryWriter
 
-    return WriterClass(log_dir=os.path.join(expdir, 'tb'))
+    return WriterClass(log_dir=tbdir)
 
+def _setup_dirs()->Optional[str]:
+    conf_common = get_conf_common()
+    conf_data = get_conf_dataset()
+    experiment_name = get_experiment_name()
 
-def _get_formatter() -> logging.Formatter:
-    return logging.Formatter(
-        '[%(asctime)s][%(levelname)s] %(message)s')
-
-def _setup_logger(experiment_name, level=logging.DEBUG) -> None:
-    global _logger
-    if _logger is not None:
-        raise RuntimeError('_logger is already setup!')
-    _logger = logging.getLogger(experiment_name)
-    _logger.handlers.clear()
-    _logger.setLevel(level)
-    ch = logging.StreamHandler()
-    ch.setLevel(level)
-    # warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
-    ch.setFormatter(_get_formatter())
-    _logger.addHandler(ch)
-    _logger.propagate = False # otherwise root logger prints things again
-
-def _add_filehandler(logger, filepath):
-    fh = logging.FileHandler(filename=os.path.expanduser(filepath))
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(_get_formatter())
-    logger.addHandler(fh)
-
-def _setup_dirs(conf_common: Config, conf_data: Config, experiment_name: str):
-    logger = get_logger()
-
-    dataroot = os.path.expanduser(conf_data['dataroot'])
+    # make sure dataroot exists
+    dataroot = utils.full_path(conf_data['dataroot'])
     os.makedirs(dataroot, exist_ok=True)
 
+    # make sure logdir and expdir exists
     logdir = conf_common['logdir']
     if logdir:
-        logdir = os.path.expanduser(os.path.expandvars(logdir))
+        logdir = utils.full_path(os.path.expandvars(logdir))
         expdir = os.path.join(logdir, experiment_name)
         os.makedirs(expdir, exist_ok=True)
-
-        # file where logger would log messages
-        logfilename = 'logs.log'
-        logfile_path = os.path.join(expdir, logfilename)
-        _add_filehandler(logger, logfile_path)
-        logger.info('expdir: %s' % expdir)
     else:
         expdir = ''
-        logger.warn(
-            'logdir not specified, no logs will be created or any models saved')
 
+    # update conf so everyone gets expanded full paths from here on
     conf_common['logdir'], conf_data['dataroot'], conf_common['expdir'] = \
         logdir, dataroot, expdir
 
-def _setup_gpus(conf_common):
+    return expdir
+
+def _setup_logger():
+    experiment_name = get_experiment_name()
+
+    # file where logger would log messages
+    log_filepath = expdir_abspath('logs.log')
+    global _logger
+    _logger = utils.setup_logging(filepath=log_filepath, name=experiment_name)
+    if not log_filepath:
+        _logger.warn(
+            'logdir not specified, no logs will be created or any models saved')
+
+def _setup_gpus():
+    conf_common = get_conf_common()
     logger = get_logger()
+
     if conf_common['gpus'] is not None:
         csv = str(conf_common['gpus'])
         #os.environ['CUDA_VISIBLE_DEVICES'] = str(conf_common['gpus'])
@@ -169,14 +169,7 @@ def _setup_gpus(conf_common):
         # alternative: torch.cuda.set_device(config.gpus[0])
 
     seed = conf_common['seed']
-
-    cudnn.enabled = True
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    cudnn.benchmark = True
-    # torch.cuda.empty_cache()
-    # torch.cuda.synchronize()
+    utils.setup_cuda(seed)
 
     if conf_common['detect_anomaly']:
         logger.warn(
@@ -184,8 +177,7 @@ def _setup_gpus(conf_common):
         torch.autograd.set_detect_anomaly(True)
 
     logger.info('Machine has {} gpu(s): {}'.format(torch.cuda.device_count(),
-        ', '.join([torch.cuda.get_device_name(i) \
-            for i in range(torch.cuda.device_count())])))
+        utils.cuda_device_names()))
     logger.info('Original CUDA_VISIBLE_DEVICES: {}'.format(
         os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ else 'NotSet'))
 
@@ -196,3 +188,4 @@ def _setup_gpus(conf_common):
     #     vals = line.split(',')
     #     if len(vals) == 2:
     #         logger.info('GPU {} mem: {}, used: {}'.format(i, vals[0], vals[1]))
+

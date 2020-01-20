@@ -4,7 +4,8 @@ import os
 from pathlib import Path
 import shutil
 
-from FastAutoAugment.common.common import common_init, get_config_common
+from FastAutoAugment.common.common import common_init, get_conf_common
+from FastAutoAugment.common import utils
 
 def main():
     # accept search and eval scripts to run
@@ -22,14 +23,13 @@ def main():
 
     # load config to some of the settings like logdir
     conf = common_init(use_args=True)
-    logdir = get_config_common()['logdir']
+    logdir = get_conf_common()['logdir']
     assert logdir
 
     # get script, resume flag and experiment dir for search
     search_script = args.search_script
     resume = conf['nas']['search']['resume']
-    search_script = os.path.expandvars((os.path.expanduser(search_script.strip())))
-    search_script =  os.path.abspath(search_script)
+    search_script = utils.full_path(search_script.strip())
     experiment_name = args.exp_prefix + '_' + Path(search_script).stem
     experiment_dir = os.path.join(logdir, experiment_name)
 
@@ -52,8 +52,7 @@ def main():
     # get script, resume flag and experiment dir for eval
     eval_script = args.eval_script
     resume = conf['nas']['eval']['resume']
-    eval_script = os.path.expandvars((os.path.expanduser(eval_script.strip())))
-    eval_script =  os.path.abspath(eval_script)
+    eval_script = utils.full_path(eval_script.strip())
     experiment_name = args.exp_prefix + '_' + Path(eval_script).stem
     experiment_dir = os.path.join(logdir, experiment_name)
 

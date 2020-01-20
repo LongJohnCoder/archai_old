@@ -71,11 +71,14 @@ class Config(UserDict):
 
     def _load_from_file(self, filepath:Optional[str])->None:
         if filepath:
-            with open(os.path.expanduser(filepath), 'r') as f:
+            filepath = os.path.expandvars(filepath)
+            filepath = os.path.expanduser(filepath)
+            with open(filepath, 'r') as f:
                 config_yaml = yaml.load(f, Loader=yaml.Loader)
             if '__include__' in config_yaml:
-                include_filepath = os.path.join(os.path.dirname(filepath),
-                                                config_yaml['__include__'])
+                include_filepath = os.path.join(
+                    os.path.dirname(filepath),
+                    config_yaml['__include__'])
                 self._load_from_file(include_filepath)
             deep_update(self, config_yaml, map_type=Config)
             print('config loaded from: ', filepath)

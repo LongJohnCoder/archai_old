@@ -16,6 +16,7 @@ from .aug_policies import arsaug_policy, autoaug_policy, autoaug_paper_cifar10,\
     fa_reduced_cifar10, fa_reduced_svhn, fa_resnet50_rimagenet
 from .augmentations import *
 from ..common.common import get_logger
+from .common import utils
 from .imagenet import ImageNet
 
 DatasetLike = Union[Dataset, Subset, ConcatDataset]
@@ -30,7 +31,7 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
     logger = get_logger()
 
     # if debugging in vscode, workers > 0 gets termination
-    if 'pydevd' in sys.modules:
+    if utils.is_debugging():
         n_workers = 0
         logger.warn('Debugger is detected, lower performance settings may be used.')
     else: # use simple heuristic to auto select number of workers
