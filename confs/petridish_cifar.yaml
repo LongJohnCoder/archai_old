@@ -1,7 +1,14 @@
 __include__: 'darts_cifar.yaml' # defaults are loaded from this file
 
+# common:
+#   experiment_name: 'petridish_run2_seed42_eval'
 
 nas:
+  eval:
+    model_desc:
+      n_cells: 14
+    loader:
+      batch: 64
   search:
     iterations: 4
     model_desc:

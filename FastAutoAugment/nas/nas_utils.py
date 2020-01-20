@@ -50,12 +50,12 @@ def model_and_checkpoint(conf_checkpoint:Config, resume:bool,
         model_desc = ModelDesc.load(full_desc_filename)
 
     model = model_from_desc(model_desc, device,
-                            affine=affine, droppath=droppath)
+                            droppath=droppath, affine=affine)
 
     return model, checkpoint
 
-def model_from_desc(model_desc, device, affine:bool, droppath:bool)->Model:
-    model = Model(model_desc, affine=affine, droppath=droppath)
+def model_from_desc(model_desc, device, droppath:bool, affine:bool)->Model:
+    model = Model(model_desc, droppath=droppath, affine=affine)
     # TODO: enable DataParallel
     # if data_parallel:
     #     model = nn.DataParallel(model).to(device)
