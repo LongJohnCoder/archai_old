@@ -20,8 +20,7 @@ from ..common.check_point import CheckPoint
 class ArchTrainer(Trainer, EnforceOverrides):
     def __init__(self, conf_train: Config, model: Model, device,
                  check_point:Optional[CheckPoint]) -> None:
-        super().__init__(conf_train, model, device,
-                         check_point, model.desc.has_aux_tower())
+        super().__init__(conf_train, model, device, check_point, aux_tower=True)
 
         self._l1_alphas = conf_train['l1_alphas']
         self._plotsdir = common.expdir_abspath(conf_train['plotsdir'], True)

@@ -43,8 +43,7 @@ def eval_arch(conf_eval:Config, micro_builder:Optional[MicroBuilder]):
     assert train_dl is not None and test_dl is not None
 
 
-    trainer = Trainer(conf_train, model, device,
-                      checkpoint, model.desc.has_aux_tower())
+    trainer = Trainer(conf_train, model, device, checkpoint, aux_tower=True)
     trainer.fit(train_dl, test_dl)
 
     # save metrics

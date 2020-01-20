@@ -101,7 +101,7 @@ def _pretrained_model_desc(conf_pretrain:Config, device,
         assert train_dl is not None and test_dl is not None
 
         trainer = Trainer(conf_trainer, model, device,
-            check_point=None, aux_tower=model.desc.has_aux_tower())
+            check_point=None, aux_tower=True)
         trainer.fit(train_dl, test_dl)
 
         # save metrics
