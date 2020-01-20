@@ -1,18 +1,12 @@
-from FastAutoAugment.nas.operations import MixedOp
+from FastAutoAugment.darts.mixed_op import MixedOp
+from FastAutoAugment.common import utils, timing
+
 import torch
 import torch.backends.cudnn as cudnn
 import numpy as np
-from timebudget import timebudget
 
-timebudget.set_quiet(True)
-timebudget.set_show_all_stats(True)
 
-cudnn.enabled = True
-np.random.seed(2)
-torch.manual_seed(2)
-torch.cuda.manual_seed_all(2)
-cudnn.benchmark = True
-torch.cuda.set_device(0)
+utils.setup_cuda(2)
 
 device = torch.device('cuda')
 
@@ -23,7 +17,8 @@ x = torch.randn((64,16,32,32), requires_grad=True).to(device=device)
 
 for i in range(1000):
     y = mop(x, a)
-timebudget.report()
+
+timing.print_all_timings()
 
 """
 Without cudnn setup, requires_grad=False:

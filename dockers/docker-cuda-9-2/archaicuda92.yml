@@ -276,7 +276,7 @@ dependencies:
     - tensorboard==2.0.1
     - terminado==0.8.3
     - testpath==0.4.4
-    - timebudget==0.7
+    - runstats==1.8.0
     - torchstat==0.0.7
     - tornado==6.0.3
     - tqdm==4.36.1

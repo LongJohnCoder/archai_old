@@ -13,7 +13,7 @@ install_requires=[
     'tensorwatch @ git+https://github.com/microsoft/tensorwatch.git',
     'pretrainedmodels', 'tqdm', 'sklearn', 'matplotlib', 'psutil',
     'requests',
-    'gorilla', 'pyyaml', 'timebudget', 'overrides'
+    'gorilla', 'pyyaml', 'overrides', 'runstats'
 ]
 
 if platform.system()!='Windows':
