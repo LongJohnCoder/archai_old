@@ -1,7 +1,7 @@
 from torch.utils.data.dataloader import DataLoader
 import os
 import sys
-from typing import Tuple, Union, Optional
+from typing import List, Tuple, Union, Optional
 
 import torch
 import torchvision
@@ -40,10 +40,7 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
     logger.info('n_workers = {}'.format(n_workers))
 
     # get usual random crop/flip transforms
-    transform_train, transform_test = get_transforms(dataset)
-
-    # add additional aug and cutout transformations
-    _add_augs(transform_train, aug, cutout)
+    transform_train, transform_test = get_transforms(dataset, aug, cutout)
 
     trainset, testset = _get_datasets(dataset, dataroot,
         load_train, load_test, transform_train, transform_test)
@@ -94,7 +91,7 @@ def get_dataloaders(dataset:str, batch_size, dataroot:str, aug, cutout:int,
     # we have to return train_sampler because of horovod
     return trainloader, validloader, testloader, train_sampler
 
-def get_transforms(dataset):
+def get_transforms(dataset, aug:Union[List, str], cutout:int):
     if 'imagenet' in dataset:
         return _get_imagenet_transforms()
 
@@ -144,6 +141,9 @@ def get_transforms(dataset):
 
     train_transform = transforms.Compose(transf + normalize)
     test_transform = transforms.Compose(normalize)
+
+    # add additional aug and cutout transformations
+    _add_augs(train_transform, aug, cutout)
 
     return train_transform, test_transform
 
@@ -407,13 +407,13 @@ def _get_train_sampler(val_ratio:float, val_fold:int, trainset, horovod,
     return train_sampler, valid_sampler
 
 
-def _add_augs(transform_train, aug:str, cutout:int):
+def _add_augs(transform_train, aug:Union[List, str], cutout:int):
     logger = get_logger()
 
-    # TODO: total_aug remains None in original fastaug code
+    # TODO: recheck: total_aug remains None in original fastaug code
     total_aug = augs = None
 
-    logger.info('Additional augmentation = "{}"'.format(aug))
+    logger.info(f'Additional augmentation = "{aug}"')
     if isinstance(aug, list):
         transform_train.transforms.insert(0, Augmentation(aug))
     elif aug:
