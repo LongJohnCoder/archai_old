@@ -53,7 +53,11 @@ def common_init(config_filepath: Optional[str]=None,
     if datadir and logdir:
         # prepend so if supplied from outside it takes back seat
         param_args = ['--nas.eval.loader.dataset.dataroot', datadir,
-                       '--common.logdir', logdir] + param_args
+                      '--nas.search.loader.dataset.dataroot', datadir,
+                      '--common.logdir', logdir] + param_args
+        print(f'Obtained PT_DATA_DIR {datadir}')
+        print(f'Obtained PT_OUTPUT_DIR {logdir}')
+        
 
     conf = Config(config_filepath=config_filepath,
                   param_args=param_args,
@@ -158,7 +162,7 @@ def _setup_gpus(conf_common):
     logger = get_logger()
     if conf_common['gpus'] is not None:
         csv = str(conf_common['gpus'])
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(conf_common['gpus'])
+        #os.environ['CUDA_VISIBLE_DEVICES'] = str(conf_common['gpus'])
         torch.cuda.set_device(int(csv.split(',')[0]))
         logger.info('Only these GPUs will be used: {}'.format(
             conf_common['gpus']))
